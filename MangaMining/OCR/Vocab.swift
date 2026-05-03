@@ -16,6 +16,12 @@ struct Vocab: Sendable {
 
     var size: Int { tokens.count }
 
+    /// Returns the unfiltered token string at this ID, for diagnostics.
+    func rawToken(_ id: Int) -> String? {
+        guard id >= 0, id < tokens.count else { return nil }
+        return tokens[id]
+    }
+
     /// Returns the token string for an ID, or nil if the ID is out of range or special.
     /// Strips the BERT `##` continuation prefix when present so decoded text reads cleanly.
     func render(_ id: Int) -> String? {

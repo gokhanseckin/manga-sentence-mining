@@ -191,13 +191,18 @@ actor MangaOCRRunner {
             debugTokens.append(bestID)
             if Int64(bestID) == Self.eosTokenID { break }
             inputIDs.append(Int64(bestID))
-            if let piece = loaded.vocab.render(bestID) {
+            let rawTok = loaded.vocab.rawToken(bestID) ?? "<oob>"
+            let piece = loaded.vocab.render(bestID)
+            if inputIDs.count <= 8 {
+                print("[ORT] tok id=\(bestID) raw=\"\(rawTok)\" rendered=\(piece.map { "\"\($0)\"" } ?? "nil")")
+            }
+            if let piece {
                 output += piece
             }
         }
 
         let preview = debugTokens.prefix(10).map { "\($0)" }.joined(separator: ",")
-        print("[ORT] decoded tokens: count=\(debugTokens.count) first=[\(preview)] output=\"\(output)\"")
+        print("[ORT] decoded tokens: count=\(debugTokens.count) first=[\(preview)] output=\"\(output)\" outputBytes=\(output.utf8.count)")
         return output
     }
 }
