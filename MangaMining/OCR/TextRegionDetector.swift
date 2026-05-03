@@ -20,6 +20,13 @@ import Vision
 /// (page headers, SFX, captions). Both result sets are unioned.
 struct TextRegionDetector {
     var minNormalizedArea: CGFloat = 0.0005
+    /// Minimum aspect ratio (long/short) for a region to be accepted by its
+    /// orientation-specific pass. The horizontal pass keeps wide-and-short
+    /// regions; the vertical pass keeps tall-and-narrow regions. Squarish
+    /// regions are rejected — they're typically the same vertical-text crop
+    /// detected wrongly by the horizontal pass, where Vision groups characters
+    /// from multiple vertical columns at the same y into a single strip.
+    var minOrientationAspect: CGFloat = 1.5
 
     /// Returns regions in image-pixel coordinates (origin top-left).
     func detect(cgImage: CGImage) async throws -> [CGRect] {
@@ -27,7 +34,14 @@ struct TextRegionDetector {
         async let verticalTask = detectOriented(cgImage: cgImage, rotateCW: true)
         let horizontal = try await horizontalTask
         let vertical = try await verticalTask
-        return horizontal + vertical
+        // Keep only horizontal regions from the horizontal pass and vertical
+        // regions from the vertical pass. The opposite-orientation hits in
+        // each pass are mostly noise (cross-column strips for the horizontal
+        // pass on vertical Japanese; cross-line strips for the vertical pass
+        // on horizontal SFX).
+        let h = horizontal.filter { $0.width >= $0.height * minOrientationAspect }
+        let v = vertical.filter { $0.height >= $0.width * minOrientationAspect }
+        return h + v
     }
 
     private func detectOriented(cgImage: CGImage, rotateCW: Bool) async throws -> [CGRect] {

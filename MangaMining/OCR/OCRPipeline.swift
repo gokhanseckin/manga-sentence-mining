@@ -51,7 +51,7 @@ struct OCRPipeline {
             }
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             print("[OCR] region \(rect) → \"\(trimmed)\"")
-            guard !trimmed.isEmpty, !sfx.isSFX(trimmed) else { continue }
+            guard !trimmed.isEmpty, !sfx.isSFX(trimmed), !isOnlyPunctuation(trimmed) else { continue }
             perRegion.append((trimmed, rect))
         }
 
@@ -59,6 +59,14 @@ struct OCRPipeline {
         let allRegions = perRegion.map(\.rect)
         return sentences.map { SentenceCandidate(text: $0, sourceRegions: allRegions) }
     }
+}
+
+/// True if the string contains nothing but ellipsis / dots / Japanese punctuation.
+/// manga-ocr emits these for noise-only crops (small artifacts, partial bubble
+/// borders), and they aren't useful as study sentences.
+private func isOnlyPunctuation(_ s: String) -> Bool {
+    let punctuation: Set<Character> = [".", "。", "、", "・", "…", "‥", "ー", "「", "」", "『", "』", "！", "？", "!", "?", " ", "\t"]
+    return s.allSatisfy { punctuation.contains($0) }
 }
 
 private extension UIImage {
