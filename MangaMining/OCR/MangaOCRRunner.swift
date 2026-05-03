@@ -112,9 +112,18 @@ actor MangaOCRRunner {
             throw RunnerError.inferenceFailed("missing encoder output")
         }
 
+        // Diagnostic: encoder output shape.
+        do {
+            let info = try encHidden.tensorTypeAndShapeInfo()
+            print("[ORT] encoder hidden shape:", info.shape.map(\.intValue))
+        } catch {
+            print("[ORT] failed to read encoder shape: \(error)")
+        }
+
         // Greedy decode loop.
         var inputIDs: [Int64] = [Self.decoderStartTokenID]
         var output = ""
+        var debugTokens: [Int] = []
         let maxLen = Self.maxNewTokens
         let vocabSize = Self.vocabSize
 
@@ -146,22 +155,32 @@ actor MangaOCRRunner {
                 throw RunnerError.inferenceFailed("missing decoder output")
             }
 
-            let logitsData: NSMutableData
+            let logitsBytes: Data
+            let logitsShape: [Int]
             do {
-                logitsData = try logits.tensorData() as NSMutableData
+                let mutable = try logits.tensorData() as NSMutableData
+                logitsBytes = Data(referencing: mutable)
+                logitsShape = try logits.tensorTypeAndShapeInfo().shape.map(\.intValue)
             } catch {
                 throw RunnerError.inferenceFailed("logits read: \(error.localizedDescription)")
+            }
+            if inputIDs.count == 1 {
+                print("[ORT] logits shape:", logitsShape, "bytes=\(logitsBytes.count)")
             }
 
             // Argmax over the last sequence position.
             let T = inputIDs.count
             let lastOffsetFloats = (T - 1) * vocabSize
+            let totalFloats = T * vocabSize
+            guard logitsBytes.count >= totalFloats * MemoryLayout<Float>.size else {
+                throw RunnerError.inferenceFailed("logits buffer too small: \(logitsBytes.count) bytes for \(totalFloats) floats")
+            }
             var bestID: Int = 0
             var bestVal: Float = -.infinity
-            logitsData.bytes.withMemoryRebound(to: Float.self, capacity: T * vocabSize) { ptr in
-                let base = ptr.advanced(by: lastOffsetFloats)
+            logitsBytes.withUnsafeBytes { (raw: UnsafeRawBufferPointer) in
+                let floats = raw.bindMemory(to: Float.self)
                 for i in 0..<vocabSize {
-                    let v = base[i]
+                    let v = floats[lastOffsetFloats + i]
                     if v > bestVal {
                         bestVal = v
                         bestID = i
@@ -169,6 +188,7 @@ actor MangaOCRRunner {
                 }
             }
 
+            debugTokens.append(bestID)
             if Int64(bestID) == Self.eosTokenID { break }
             inputIDs.append(Int64(bestID))
             if let piece = loaded.vocab.render(bestID) {
@@ -176,6 +196,8 @@ actor MangaOCRRunner {
             }
         }
 
+        let preview = debugTokens.prefix(10).map { "\($0)" }.joined(separator: ",")
+        print("[ORT] decoded tokens: count=\(debugTokens.count) first=[\(preview)] output=\"\(output)\"")
         return output
     }
 }
