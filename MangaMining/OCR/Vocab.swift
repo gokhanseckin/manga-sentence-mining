@@ -12,9 +12,11 @@ struct Vocab: Sendable {
             print("[Vocab] FAILED to decode \(url.lastPathComponent) (\(data.count) bytes) as UTF-8")
             throw NSError(domain: "Vocab", code: 1, userInfo: [NSLocalizedDescriptionKey: "vocab is not utf-8"])
         }
-        // Trailing newline produces an empty last entry; drop it.
-        var lines = raw.components(separatedBy: .newlines)
-        while let last = lines.last, last.isEmpty { lines.removeLast() }
+        // The file uses CRLF on some hosts; enumerateLines normalizes all
+        // newline variants and never produces empty entries from separator
+        // pairs the way components(separatedBy:) does.
+        var lines: [String] = []
+        raw.enumerateLines { line, _ in lines.append(line) }
         self.tokens = lines
         let sample912 = lines.indices.contains(912) ? lines[912] : "<missing>"
         let sample860 = lines.indices.contains(860) ? lines[860] : "<missing>"
