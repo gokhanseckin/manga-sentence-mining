@@ -7,11 +7,20 @@ struct Vocab: Sendable {
     private let tokens: [String]
 
     init(contentsOf url: URL) throws {
-        let raw = try String(contentsOf: url, encoding: .utf8)
+        let data = try Data(contentsOf: url)
+        guard let raw = String(data: data, encoding: .utf8) else {
+            print("[Vocab] FAILED to decode \(url.lastPathComponent) (\(data.count) bytes) as UTF-8")
+            throw NSError(domain: "Vocab", code: 1, userInfo: [NSLocalizedDescriptionKey: "vocab is not utf-8"])
+        }
         // Trailing newline produces an empty last entry; drop it.
         var lines = raw.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
         if let last = lines.last, last.isEmpty { lines.removeLast() }
         self.tokens = lines
+        let sample912 = lines.indices.contains(912) ? lines[912] : "<missing>"
+        let sample860 = lines.indices.contains(860) ? lines[860] : "<missing>"
+        print("[Vocab] loaded \(lines.count) tokens from \(url.lastPathComponent) "
+              + "(file=\(data.count)B, str=\(raw.count) chars). "
+              + "id 912=\"\(sample912)\" id 860=\"\(sample860)\"")
     }
 
     var size: Int { tokens.count }
