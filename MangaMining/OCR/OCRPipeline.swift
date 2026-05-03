@@ -20,6 +20,7 @@ enum OCRPipelineError: Error {
 /// Single concrete implementation. No `OCREngine` protocol abstraction (spec §5).
 struct OCRPipeline {
     var detector = TextRegionDetector()
+    var merger = RegionMerger()
     var order = ReadingOrder()
     var sfx = SFXFilter()
     var reconstructor = SentenceReconstructor()
@@ -33,8 +34,9 @@ struct OCRPipeline {
         let upright = image.normalizedOrientation()
         guard let cg = upright.cgImage else { throw OCRPipelineError.noImageData }
 
-        let regions = try await detector.detect(cgImage: cg)
-        print("[OCR] Vision detected \(regions.count) text region(s) in \(cg.width)x\(cg.height) image")
+        let rawRegions = try await detector.detect(cgImage: cg)
+        let regions = merger.merge(rawRegions)
+        print("[OCR] Vision detected \(rawRegions.count) raw region(s), merged to \(regions.count) bubble(s) in \(cg.width)x\(cg.height) image")
         guard !regions.isEmpty else { throw OCRPipelineError.noTextDetected }
         let ordered = order.sort(regions, imageHeight: CGFloat(cg.height))
 
