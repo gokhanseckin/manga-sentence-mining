@@ -4,7 +4,6 @@ import UIKit
 
 struct ProcessingView: View {
     let page: CapturedPage
-    let image: UIImage?
     var onDone: () -> Void
 
     @Environment(\.modelContext) private var modelContext
@@ -69,8 +68,8 @@ struct ProcessingView: View {
     }
 
     private func runPipeline() async {
-        guard let image else {
-            errorMessage = "Missing image."
+        guard let image = PhotoStore.loadImage(relativePath: page.photoRelativePath) else {
+            errorMessage = "Couldn't load captured photo from disk."
             phase = .failure
             return
         }

@@ -13,8 +13,8 @@ struct Vocab: Sendable {
             throw NSError(domain: "Vocab", code: 1, userInfo: [NSLocalizedDescriptionKey: "vocab is not utf-8"])
         }
         // Trailing newline produces an empty last entry; drop it.
-        var lines = raw.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        if let last = lines.last, last.isEmpty { lines.removeLast() }
+        var lines = raw.components(separatedBy: .newlines)
+        while let last = lines.last, last.isEmpty { lines.removeLast() }
         self.tokens = lines
         let sample912 = lines.indices.contains(912) ? lines[912] : "<missing>"
         let sample860 = lines.indices.contains(860) ? lines[860] : "<missing>"

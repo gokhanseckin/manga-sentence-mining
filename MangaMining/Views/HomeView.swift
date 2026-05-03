@@ -4,7 +4,6 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showCamera = false
-    @State private var capturedImage: UIImage?
     @State private var capturedPage: CapturedPage?
 
     var body: some View {
@@ -58,9 +57,8 @@ struct HomeView: View {
                 .ignoresSafeArea()
             }
             .navigationDestination(item: $capturedPage) { page in
-                ProcessingView(page: page, image: capturedImage) {
+                ProcessingView(page: page) {
                     capturedPage = nil
-                    capturedImage = nil
                 }
             }
         }
@@ -73,11 +71,8 @@ struct HomeView: View {
             let page = CapturedPage(photoRelativePath: path)
             modelContext.insert(page)
             try modelContext.save()
-            capturedImage = image
             capturedPage = page
         } catch {
-            // Phase 0: silent failure on disk write is acceptable; reshoot path
-            // is the recovery. Surface a real alert in Phase 1.
             print("PhotoStore write failed: \(error)")
         }
     }
