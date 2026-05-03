@@ -39,8 +39,7 @@ struct OCRPipeline {
             do {
                 raw = try await runner.recognize(crop: crop)
             } catch MangaOCRRunner.RunnerError.modelMissing,
-                    MangaOCRRunner.RunnerError.vocabMissing,
-                    MangaOCRRunner.RunnerError.notImplemented {
+                    MangaOCRRunner.RunnerError.vocabMissing {
                 throw OCRPipelineError.modelUnavailable
             }
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
