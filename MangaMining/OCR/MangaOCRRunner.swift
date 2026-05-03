@@ -19,7 +19,7 @@ import onnxruntime
 /// The exact ONNX I/O signature and decoder loop are filled in during Phase 0
 /// prototyping against a real device — they depend on which mayocream/manga-ocr-onnx
 /// revision is bundled.
-final class MangaOCRRunner {
+final class MangaOCRRunner: Sendable {
     enum RunnerError: Error {
         case modelMissing
         case vocabMissing

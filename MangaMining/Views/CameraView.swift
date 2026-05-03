@@ -20,8 +20,8 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
     var onCapture: ((UIImage) -> Void)?
     var onCancel: (() -> Void)?
 
-    private let session = AVCaptureSession()
-    private let photoOutput = AVCapturePhotoOutput()
+    nonisolated(unsafe) private let session = AVCaptureSession()
+    nonisolated(unsafe) private let photoOutput = AVCapturePhotoOutput()
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private let sessionQueue = DispatchQueue(label: "camera.session")
 
@@ -111,8 +111,10 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
         onCancel?()
     }
 
-    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+    nonisolated func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         guard let data = photo.fileDataRepresentation(), let image = UIImage(data: data) else { return }
-        onCapture?(image)
+        Task { @MainActor in
+            self.onCapture?(image)
+        }
     }
 }
