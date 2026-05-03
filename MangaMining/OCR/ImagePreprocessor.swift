@@ -40,7 +40,21 @@ struct ImagePreprocessor {
             throw ImagePreprocessorError.contextCreationFailed
         }
         ctx.interpolationQuality = .high
-        ctx.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+
+        // Preserve aspect ratio: fit the crop into a 224×224 box centered, with
+        // white padding on the short axis. Vision returns per-column boxes for
+        // vertical Japanese, which are tall and narrow; squashing those
+        // directly destroys the character shapes and the model only recognizes
+        // the first character before giving up. With aspect-preserving fit,
+        // characters keep their natural proportions and the full column reads.
+        let cropW = CGFloat(cg.width)
+        let cropH = CGFloat(cg.height)
+        let fit = min(CGFloat(side) / cropW, CGFloat(side) / cropH)
+        let drawW = cropW * fit
+        let drawH = cropH * fit
+        let drawX = (CGFloat(side) - drawW) * 0.5
+        let drawY = (CGFloat(side) - drawH) * 0.5
+        ctx.draw(cg, in: CGRect(x: drawX, y: drawY, width: drawW, height: drawH))
 
         let pixelCount = side * side
         var floats = [Float](repeating: 0, count: 3 * pixelCount)
