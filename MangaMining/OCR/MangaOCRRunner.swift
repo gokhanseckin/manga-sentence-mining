@@ -6,19 +6,20 @@ import UIKit
 import onnxruntime
 #endif
 
-/// Runs the manga-ocr ONNX model on a single image crop and returns recognized text.
+/// Runs the manga-ocr model on a single image crop and returns recognized text.
 ///
-/// The model expects a 224x224 RGB image normalized to ImageNet mean/std and produces
-/// token IDs decoded via the bundled vocab.
+/// The mayocream/manga-ocr-onnx repo splits the model into a Vision Transformer
+/// encoder and a GPT-style decoder. The encoder produces hidden states from a
+/// 224x224 RGB image (ImageNet-normalized); the decoder autoregressively emits
+/// token IDs that are decoded against the bundled vocab.
 ///
-/// **Bundling:** the model file (`manga-ocr.onnx`) and vocab (`vocab.txt`) are not
-/// committed to the repo (~250MB combined). Run `scripts/fetch-model.sh` to download
-/// them into `MangaMining/Resources/` before building.
+/// **Bundling:** the model files and tokenizer are not committed to the repo
+/// (~440MB combined). Run `scripts/fetch-model.sh` to download them into
+/// `MangaMining/Resources/` before building.
 ///
-/// This file is intentionally written as a stub with the integration shape in place.
-/// The exact ONNX I/O signature and decoder loop are filled in during Phase 0
-/// prototyping against a real device — they depend on which mayocream/manga-ocr-onnx
-/// revision is bundled.
+/// The ONNX inference loop is filled in during Phase 0 prototyping against a
+/// real device — kept as a single implementation site, no protocol abstraction
+/// (spec §5).
 final class MangaOCRRunner: Sendable {
     enum RunnerError: Error {
         case modelMissing
@@ -29,28 +30,24 @@ final class MangaOCRRunner: Sendable {
 
     static let shared = MangaOCRRunner()
 
-    private let modelResourceName = "manga-ocr"
-    private let modelExtension = "onnx"
-    private let vocabResourceName = "vocab"
-    private let vocabExtension = "txt"
-
     private init() {}
 
     var isAvailable: Bool {
-        Bundle.main.url(forResource: modelResourceName, withExtension: modelExtension) != nil
+        Bundle.main.url(forResource: "encoder_model", withExtension: "onnx") != nil
+            && Bundle.main.url(forResource: "decoder_model", withExtension: "onnx") != nil
     }
 
     /// Recognize text in a CGImage crop. Returns "" if the crop has no readable text.
-    /// Throws `.modelMissing` until the model file is added via the fetch script.
+    /// Throws `.modelMissing` until the model files are added via the fetch script.
     func recognize(crop: CGImage) async throws -> String {
-        guard let _ = Bundle.main.url(forResource: modelResourceName, withExtension: modelExtension) else {
+        guard Bundle.main.url(forResource: "encoder_model", withExtension: "onnx") != nil,
+              Bundle.main.url(forResource: "decoder_model", withExtension: "onnx") != nil else {
             throw RunnerError.modelMissing
         }
-        guard let _ = Bundle.main.url(forResource: vocabResourceName, withExtension: vocabExtension) else {
+        guard Bundle.main.url(forResource: "vocab", withExtension: "txt") != nil else {
             throw RunnerError.vocabMissing
         }
-        // TODO(phase0): implement ONNX inference path. Kept as a single
-        // implementation site — no `OCREngine` protocol per spec §5.
+        // TODO(phase0): wire encoder → decoder loop with ORTSession.
         throw RunnerError.notImplemented
     }
 }
