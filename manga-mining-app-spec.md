@@ -146,7 +146,8 @@ These features were added on top of Phase 1 in response to real-use feedback dur
 | #12 | Retry button on OCR failure view | Gemini 503s would force the user back to home and require re-shooting. Retry re-runs the pipeline against the same on-disk image. Failure body is now scrollable so long error JSON doesn't push buttons off-screen. |
 | #13 | Capture preview screen with "Mine sentences" / "Retake" | Standard mobile photo-validation flow. Shutter no longer triggers OCR directly — user confirms first. Camera-roll save also moves to the Mine-sentences moment so retakes don't pollute the user's Photos library. |
 | #14 | Pinch-zoom + fit-to-screen for image previews | The SwiftUI `ScrollView + scaledToFit` combo rendered images at intrinsic size. Both capture preview and sentence-detail fullscreen viewer now use a `UIScrollView`-based `ZoomableImageView` (aspect-fit + pinch + double-tap toggle). |
-| #15 | Mecab override of LLM sentence reading on save | Gemini occasionally produces wrong readings on kanji compounds (e.g. 心臓 → こころぞう instead of しんぞう). Mecab + IPADIC is dictionary-grounded and gets these right; it now becomes the authoritative reading source on save, falling back to the LLM-supplied reading only if the user manually edited it before Save. |
+| #15 | Mecab override of LLM sentence reading on save | Gemini occasionally produces wrong readings on kanji compounds (e.g. 心臓 → こころぞう instead of しんぞう). Mecab + IPADIC is dictionary-grounded and gets these right; it now becomes the authoritative reading source on save, falling back to the LLM-supplied reading only if the user manually edited it before Save. **Superseded by #17** — see below. |
+| #17 | Drop `reading` from the Gemini prompt + response schema entirely | Once #15 made Mecab authoritative, the LLM reading was always discarded. Removing it from the prompt saves output tokens, reduces latency, and eliminates a class of LLM hallucinations. Mecab now runs in `OCRPipeline.process` immediately after the provider returns, so by the time `CandidatePickerView` shows the candidates, `reading` is already populated from on-device tokenization. |
 
 These polish items do not modify any spec invariant — the entity model, SRS math, lapse-requeue semantics, and immutability rules from §3, §7, §8 are untouched.
 
@@ -387,7 +388,6 @@ protocol OCRProvider: Sendable {
 The Gemini prompt instructs the model to:
 
 - Transcribe `text` **exactly as printed**, character-for-character — no rephrasing, no particle normalization, no grammar fixes
-- Produce `reading` as the same sentence rewritten entirely in hiragana, preserving punctuation and word order
 - Produce `translationTr` as natural conversational Turkish, preserving manga tone (interjections, particle nuance)
 - Provide `bbox` as `[x, y, w, h]` normalized 0–1
 - Order entries top-right → bottom-left for vertical Japanese, top-left → bottom-right for horizontal
@@ -395,13 +395,16 @@ The Gemini prompt instructs the model to:
 
 Combined with `temperature: 0` and Gemini's native JSON-mode `responseSchema`, this produces verbatim output ~95% of the time on real manga pages. Remaining errors are paraphrasing nudges, not OCR misreads.
 
-### Reading override on save (Phase 1 polish)
+### Sentence reading is generated on-device, not by the LLM
 
-The LLM-supplied `reading` is **not the source of truth** in storage. On save (in `CandidatePickerView.commit`), `JapaneseTokenizer.hiraganaReading(of:)` regenerates the sentence reading from Mecab + IPADIC and overwrites the LLM value before the `Sentence` row is inserted.
+The `reading` field is **not** requested from Gemini. Mecab + IPADIC generates it on-device immediately after the OCR call returns, in `OCRPipeline.process`. This was originally a save-time *override* (Phase 1 polish, PR #15), then evolved into removing the LLM reading from the prompt + response schema entirely (PR #17) once it was clear the LLM value was always discarded.
 
-This was added because Gemini occasionally produces character-by-character kun-yomi readings on kanji compounds that take on-yomi (e.g. 心臓 → こころぞう instead of しんぞう). Mecab is dictionary-grounded and gets these right.
+Reasons to drop the LLM reading from the call:
+- Gemini occasionally produces character-by-character kun-yomi readings on kanji compounds that take on-yomi (e.g. 心臓 → こころぞう instead of しんぞう). Mecab is dictionary-grounded and gets these right.
+- Removing the field reduces Gemini output tokens and latency.
+- One source of truth — no provenance ambiguity.
 
-The override is skipped if the user manually edited the reading line in the picker UI before tapping Save — their edit is treated as authoritative.
+The user can still edit the displayed reading in `CandidatePickerView` before saving; manual edits survive into storage. If the user edits the *text* line but leaves the reading untouched, the picker re-runs Mecab on save so the reading stays consistent with the new text.
 
 ### Failure modes
 
