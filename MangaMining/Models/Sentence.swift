@@ -3,12 +3,19 @@ import SwiftData
 
 @Model
 final class Sentence {
+    #Index<Sentence>([\.createdAt])
+
     @Attribute(.unique) var id: UUID
     var text: String
     var reading: String?
     var createdAt: Date
     var translationTr: String?
     var capturedPage: CapturedPage?
+
+    @Relationship(deleteRule: .cascade, inverse: \Cloze.sentence)
+    var clozes: [Cloze] = []
+
+    var hasClozes: Bool { !clozes.isEmpty }
 
     init(
         id: UUID = UUID(),
