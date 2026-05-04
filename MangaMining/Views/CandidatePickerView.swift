@@ -7,6 +7,7 @@ struct CandidatePickerView: View {
 
     @State private var editable: [EditableCandidate]
     @State private var selected: Set<UUID>
+    @State private var isSaving = false
 
     init(
         candidates: [SentenceCandidate],
@@ -28,6 +29,42 @@ struct CandidatePickerView: View {
         var text: String
         var reading: String
         var translationTr: String
+    }
+
+    private func commit() async {
+        isSaving = true
+        defer { isSaving = false }
+        let rows = editable
+            .filter { selected.contains($0.id) }
+            .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+
+        var picked: [SentenceCandidate] = []
+        for row in rows {
+            let trimmedReading = row.reading.trimmingCharacters(in: .whitespacesAndNewlines)
+            // Override the LLM reading with a Mecab-generated one when possible
+            // — IPADIC gets compound on-yomi readings right (e.g. 心臓 → しんぞう).
+            // If the user manually edited the reading, keep their version.
+            let userEditedReading = trimmedReading != originalReading(for: row.id)
+            var reading = row.reading
+            if !userEditedReading {
+                if let mecab = try? await JapaneseTokenizer.shared.hiraganaReading(of: row.text),
+                   !mecab.isEmpty {
+                    reading = mecab
+                }
+            }
+            let original = candidates.first(where: { $0.id == row.id })
+            picked.append(SentenceCandidate(
+                text: row.text,
+                reading: reading,
+                translationTr: row.translationTr,
+                sourceRegions: original?.sourceRegions ?? []
+            ))
+        }
+        onSave(picked)
+    }
+
+    private func originalReading(for id: UUID) -> String {
+        candidates.first(where: { $0.id == id })?.reading ?? ""
     }
 
     var body: some View {
@@ -63,27 +100,18 @@ struct CandidatePickerView: View {
         }
         .navigationTitle("Pick sentences")
         .navigationBarTitleDisplayMode(.inline)
+        .disabled(isSaving)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", role: .cancel) { onCancel() }
             }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    let picked = editable
-                        .filter { selected.contains($0.id) }
-                        .map { row -> SentenceCandidate in
-                            let original = candidates.first(where: { $0.id == row.id })
-                            return SentenceCandidate(
-                                text: row.text,
-                                reading: row.reading,
-                                translationTr: row.translationTr,
-                                sourceRegions: original?.sourceRegions ?? []
-                            )
-                        }
-                        .filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                    onSave(picked)
+                Button {
+                    Task { await commit() }
+                } label: {
+                    if isSaving { ProgressView() } else { Text("Save") }
                 }
-                .disabled(selected.isEmpty)
+                .disabled(selected.isEmpty || isSaving)
             }
         }
     }

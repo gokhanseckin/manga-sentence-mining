@@ -29,6 +29,22 @@ actor JapaneseTokenizer {
         }
     }
 
+    /// Hiragana rendering of the whole sentence built by concatenating
+    /// per-token readings. Falls back to the surface for punctuation /
+    /// unknown tokens. Used to overwrite the LLM-supplied sentence reading
+    /// on save — Mecab is dictionary-grounded and gets compounds like
+    /// 心臓 → しんぞう right, where an LLM may guess kun-yomi
+    /// character-by-character (こころぞう).
+    func hiraganaReading(of text: String) throws -> String {
+        let tokens = try tokenize(text)
+        guard !tokens.isEmpty else { return "" }
+        return tokens.map { token in
+            let r = token.reading
+            if r.isEmpty || r == "*" { return token.surface }
+            return r
+        }.joined()
+    }
+
     private func ensureTagger() throws -> Tokenizer {
         if let tagger { return tagger }
         let dictionary = IPADic()
