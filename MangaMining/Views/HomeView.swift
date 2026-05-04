@@ -4,6 +4,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @State private var showCamera = false
+    @State private var showSettings = false
     @State private var capturedPage: CapturedPage?
 
     var body: some View {
@@ -47,7 +48,22 @@ struct HomeView: View {
 
                 Spacer().frame(height: 16)
             }
-            .navigationBarHidden(true)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                NavigationStack {
+                    SettingsView()
+                }
+            }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraView { image in
                     handleCapture(image)

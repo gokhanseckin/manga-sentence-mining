@@ -7,9 +7,12 @@ struct ProcessingView: View {
     var onDone: () -> Void
 
     @Environment(\.modelContext) private var modelContext
+    @Environment(SettingsStore.self) private var settings
     @State private var phase: Phase = .running
     @State private var candidates: [SentenceCandidate] = []
     @State private var errorMessage: String?
+    @State private var needsApiKey = false
+    @State private var showSettings = false
 
     enum Phase {
         case running
@@ -37,6 +40,11 @@ struct ProcessingView: View {
         .task {
             await runPipeline()
         }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView()
+            }
+        }
     }
 
     private var runningView: some View {
@@ -52,17 +60,26 @@ struct ProcessingView: View {
 
     private var failureView: some View {
         VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle")
+            Image(systemName: needsApiKey ? "key" : "exclamationmark.triangle")
                 .font(.largeTitle)
-                .foregroundStyle(.orange)
+                .foregroundStyle(needsApiKey ? .blue : .orange)
             Text(errorMessage ?? "No text found.")
                 .font(.headline)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
-            Button("Back") {
-                onDone()
+            if needsApiKey {
+                Button("Open Settings") {
+                    showSettings = true
+                }
+                .buttonStyle(.borderedProminent)
             }
-            .buttonStyle(.borderedProminent)
+            if needsApiKey {
+                Button("Back") { onDone() }
+                    .buttonStyle(.bordered)
+            } else {
+                Button("Back") { onDone() }
+                    .buttonStyle(.borderedProminent)
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -73,8 +90,9 @@ struct ProcessingView: View {
             phase = .failure
             return
         }
+        let pipeline = OCRPipeline(provider: settings.makeProvider())
         do {
-            let result = try await OCRPipeline().process(image: image)
+            let result = try await pipeline.process(image: image)
             if result.isEmpty {
                 errorMessage = "No text found. Try re-shooting."
                 phase = .failure
@@ -82,11 +100,12 @@ struct ProcessingView: View {
                 candidates = result
                 phase = .success
             }
-        } catch OCRPipelineError.noTextDetected {
-            errorMessage = "No text found. Try re-shooting."
+        } catch OCRPipelineError.apiKeyMissing {
+            needsApiKey = true
+            errorMessage = "Add your Gemini API key in Settings to recognize text."
             phase = .failure
-        } catch OCRPipelineError.modelUnavailable {
-            errorMessage = "OCR model not bundled. Run scripts/fetch-model.sh."
+        } catch OCRPipelineError.noImageData {
+            errorMessage = "Couldn't read the image."
             phase = .failure
         } catch {
             errorMessage = "OCR failed: \(error.localizedDescription)"
@@ -96,7 +115,12 @@ struct ProcessingView: View {
 
     private func save(_ picked: [SentenceCandidate]) {
         for candidate in picked {
-            let sentence = Sentence(text: candidate.text, capturedPage: page)
+            let sentence = Sentence(
+                text: candidate.text,
+                reading: candidate.reading.isEmpty ? nil : candidate.reading,
+                translationTr: candidate.translationTr.isEmpty ? nil : candidate.translationTr,
+                capturedPage: page
+            )
             modelContext.insert(sentence)
         }
         try? modelContext.save()

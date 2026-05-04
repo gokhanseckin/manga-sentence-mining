@@ -12,19 +12,12 @@ settings:
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
     SWIFT_STRICT_CONCURRENCY: complete
-packages:
-  onnxruntime:
-    url: https://github.com/microsoft/onnxruntime-swift-package-manager
-    from: 1.20.0
 targets:
   MangaMining:
     type: application
     platform: iOS
     sources:
       - path: MangaMining
-    resources:
-      - path: MangaMining/Resources
-        optional: true
     info:
       path: MangaMining/Info.plist
       properties:
@@ -42,6 +35,3 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
-    dependencies:
-      - package: onnxruntime
-        product: onnxruntime

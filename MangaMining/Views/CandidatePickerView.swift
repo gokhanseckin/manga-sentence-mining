@@ -16,7 +16,9 @@ struct CandidatePickerView: View {
         self.candidates = candidates
         self.onSave = onSave
         self.onCancel = onCancel
-        let initial = candidates.map { EditableCandidate(id: $0.id, text: $0.text) }
+        let initial = candidates.map {
+            EditableCandidate(id: $0.id, text: $0.text, reading: $0.reading, translationTr: $0.translationTr)
+        }
         _editable = State(initialValue: initial)
         _selected = State(initialValue: Set(initial.map(\.id)))
     }
@@ -24,6 +26,8 @@ struct CandidatePickerView: View {
     struct EditableCandidate: Identifiable {
         let id: UUID
         var text: String
+        var reading: String
+        var translationTr: String
     }
 
     var body: some View {
@@ -38,14 +42,23 @@ struct CandidatePickerView: View {
                             }
                         ))
                         .labelsHidden()
-                        TextField("Sentence", text: $row.text, axis: .vertical)
-                            .textFieldStyle(.plain)
-                            .font(.body)
+                        VStack(alignment: .leading, spacing: 6) {
+                            TextField("Original (日本語)", text: $row.text, axis: .vertical)
+                                .font(.body)
+                                .textFieldStyle(.plain)
+                            TextField("Reading (ひらがな)", text: $row.reading, axis: .vertical)
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                                .textFieldStyle(.plain)
+                            TextField("Translation (Türkçe)", text: $row.translationTr, axis: .vertical)
+                                .font(.callout)
+                                .textFieldStyle(.plain)
+                        }
                     }
                     .padding(.vertical, 4)
                 }
             } footer: {
-                Text("Edit any sentence before saving. Unselected items are discarded.")
+                Text("Edit any line before saving. Unselected items are discarded.")
             }
         }
         .navigationTitle("Pick sentences")
@@ -62,6 +75,8 @@ struct CandidatePickerView: View {
                             let original = candidates.first(where: { $0.id == row.id })
                             return SentenceCandidate(
                                 text: row.text,
+                                reading: row.reading,
+                                translationTr: row.translationTr,
                                 sourceRegions: original?.sourceRegions ?? []
                             )
                         }
