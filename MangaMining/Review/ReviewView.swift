@@ -6,7 +6,13 @@ struct ReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(SettingsStore.self) private var settings
 
+    let drillQuestions: [ClozeQuestion]?
+
     @State private var session: ReviewSession?
+
+    init(drillQuestions: [ClozeQuestion]? = nil) {
+        self.drillQuestions = drillQuestions
+    }
 
     var body: some View {
         NavigationStack {
@@ -31,7 +37,11 @@ struct ReviewView: View {
         }
         .onAppear {
             if session == nil {
-                session = ReviewSession(modelContext: modelContext, settings: settings)
+                if let drillQuestions {
+                    session = ReviewSession(modelContext: modelContext, settings: settings, questions: drillQuestions)
+                } else {
+                    session = ReviewSession(modelContext: modelContext, settings: settings)
+                }
             }
         }
     }

@@ -12,6 +12,7 @@ struct SentenceDetailView: View {
     @State private var draftTranslation: String = ""
     @State private var showDeleteConfirm = false
     @State private var showClozePicker = false
+    @State private var showDrillReview = false
 
     var body: some View {
         Form {
@@ -84,6 +85,12 @@ struct SentenceDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    Button {
+                        showDrillReview = true
+                    } label: {
+                        Label("Quiz these clozes", systemImage: "play.circle.fill")
+                    }
+                    .disabled(drillQuestions.isEmpty)
                 }
             }
 
@@ -99,6 +106,9 @@ struct SentenceDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showClozePicker) {
             ClozePickerView(sentence: sentence)
+        }
+        .sheet(isPresented: $showDrillReview) {
+            ReviewView(drillQuestions: drillQuestions)
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
@@ -135,6 +145,14 @@ struct SentenceDetailView: View {
             }
             Button("Cancel", role: .cancel) {}
         }
+    }
+}
+
+private extension SentenceDetailView {
+    var drillQuestions: [ClozeQuestion] {
+        sentence.clozes
+            .flatMap(\.questions)
+            .filter { !$0.isKnown }
     }
 }
 

@@ -41,6 +41,19 @@ final class ReviewSession {
         loadCurrent()
     }
 
+    /// Drills a specific set of cloze questions on demand — bypasses the due
+    /// filter. Used by the "Quiz these clozes" button on sentence detail so
+    /// freshly picked clozes can be exercised immediately without waiting for
+    /// their initial 24h horizon to elapse.
+    init(modelContext: ModelContext, settings: SettingsStore, questions: [ClozeQuestion]) {
+        self.modelContext = modelContext
+        self.settings = settings
+        let active = questions.filter { !$0.isKnown }
+        self.queue = active
+        self.totalUnique = active.count
+        loadCurrent()
+    }
+
     func submit(answerIndex: Int) {
         guard case .question = phase else { return }
         guard let question = currentQuestion, currentOptions.indices.contains(answerIndex) else { return }
