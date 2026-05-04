@@ -5,6 +5,27 @@
 
 ---
 
+## 0. Project Status (at-a-glance, current as of 2026-05-04)
+
+This section is the first thing a fresh Claude Code session should read. It exists so context loss between sessions doesn't lose track of what's shipped vs. what's next.
+
+| Phase | Status | Notes |
+|---|---|---|
+| Phase 0 — Prototype | **Shipped, in daily use** | Gemini 2.5 Flash whole-page OCR; camera + gallery import; sentence list; Keychain-stored API key |
+| Phase 1 — MVP | **Shipped 2026-05-04** | Mecab-Swift + IPADIC tokenizer; cloze picking; Ebisu v2 SRS; MCQ quiz with furigana toggle; POS + length-similar distractors; due-count Home CTA; SRS settings |
+| Phase 1 polish | **Shipped 2026-05-04** | Six post-MVP UX/quality fixes — see §2 "Phase 1 polish (shipped)" |
+| Phase 2+ | **Not committed** | Menu of candidates in §2; nothing scheduled until real-use feedback drives a commitment |
+
+**Tokenizer substitution:** The original Phase 1 plan called for Sudachi. No maintained Sudachi-on-Swift implementation exists, so `shinjukunian/Mecab-Swift` + bundled IPADIC was used instead (actor-isolated for Swift 6 strict concurrency). Functionally equivalent for this app's needs (surface, lemma, hiragana reading, POS).
+
+**Spec gaps still open:**
+- §6 Tokenization & Word Selection — implementation shipped; spec section now backfilled below.
+- §9 Out of Scope — referenced by §1, §2, §8 but never written. Still open.
+
+**Where the code lives:** `MangaMining/` (Models, OCR, Tokenizer, SRS, Review, Settings, Storage, Views). Generate Xcode project with `xcodegen generate`; iOS 26+, Swift 6, strict concurrency.
+
+---
+
 ## 1. Overview & Goals
 
 ### What this is
@@ -97,20 +118,37 @@ The app ships in two phases plus a candidate-driven post-MVP. Each phase is ship
 
 ### Phase 1 — MVP
 
+**Status:** complete and in daily use by the developer as of 2026-05-04.
+
 **Goal:** add the SRS-driven learning loop on top of Phase 0's mining.
 
-**Adds on top of Phase 0:**
+**Adds on top of Phase 0 (shipped):**
 
-- Sudachi on-device tokenization of saved sentences
+- ~~Sudachi~~ Mecab-Swift + IPADIC on-device tokenization of saved sentences (actor-isolated; see §0 for substitution rationale)
 - User picks the cloze word per sentence
 - One cloze question per cloze (kanji answer options)
-- Ebisu Bayesian SRS, one posterior per cloze question
+- Ebisu Bayesian SRS, one posterior per cloze question (closed-form GB1 binary update)
 - Multiple-choice quiz interface
-- Distractors drawn from the user's own mined-word pool, filtered by part-of-speech and similar surface-form length
+- Distractors drawn from the user's own mined-word pool, filtered by part-of-speech and similar surface-form length, with widening fallback when the pool is small
 - "Mark as known" toggle to exclude a cloze question from review
 - Furigana toggle button on every question
 
 Translation already exists from Phase 0; no new translation work in Phase 1. Still local storage only.
+
+### Phase 1 polish (shipped 2026-05-04)
+
+These features were added on top of Phase 1 in response to real-use feedback during the MVP's first day. They are not in the original Phase 1 plan but are now part of the shipped app. They are documented here so future Claude Code sessions don't try to add them again or roll them back.
+
+| PR | Feature | Why |
+|---|---|---|
+| #10 | "Quiz these clozes" drill button on sentence detail | Default Ebisu prior schedules new clozes 24h out; first-time users had no way to test the loop until tomorrow. Drill bypasses the due filter for one sentence's questions; first-attempt logging still applies. |
+| #11 | Captured source image inline in sentence detail + fullscreen viewer | `CapturedPage` already stored the photo; no UI exposed it. Users wanted to see the source page when reviewing a sentence. Hidden gracefully when the file is missing. |
+| #12 | Retry button on OCR failure view | Gemini 503s would force the user back to home and require re-shooting. Retry re-runs the pipeline against the same on-disk image. Failure body is now scrollable so long error JSON doesn't push buttons off-screen. |
+| #13 | Capture preview screen with "Mine sentences" / "Retake" | Standard mobile photo-validation flow. Shutter no longer triggers OCR directly — user confirms first. Camera-roll save also moves to the Mine-sentences moment so retakes don't pollute the user's Photos library. |
+| #14 | Pinch-zoom + fit-to-screen for image previews | The SwiftUI `ScrollView + scaledToFit` combo rendered images at intrinsic size. Both capture preview and sentence-detail fullscreen viewer now use a `UIScrollView`-based `ZoomableImageView` (aspect-fit + pinch + double-tap toggle). |
+| #15 | Mecab override of LLM sentence reading on save | Gemini occasionally produces wrong readings on kanji compounds (e.g. 心臓 → こころぞう instead of しんぞう). Mecab + IPADIC is dictionary-grounded and gets these right; it now becomes the authoritative reading source on save, falling back to the LLM-supplied reading only if the user manually edited it before Save. |
+
+These polish items do not modify any spec invariant — the entity model, SRS math, lapse-requeue semantics, and immutability rules from §3, §7, §8 are untouched.
 
 ### Phase 2+ — Candidates (no committed scope)
 
@@ -157,7 +195,7 @@ Flows are grouped by phase introduction. A flow listed under Phase 0 also applie
 The core Phase 0 loop. The user shoots one printed manga page at a time, or imports one from the gallery. There is no batch-shooting mode and no queue of unprocessed pages — each page is processed and resolved before the next is taken.
 
 1. From the home screen, the user either taps **Capture** to open the in-app camera, or **Open from gallery** to pick a photo via `PhotosPicker`.
-2. For capture: the user frames a manga page and triggers the shutter. The camera uses `.builtInTripleCamera` / `.builtInDualWideCamera` so iOS auto-switches to the ultra-wide constituent at macro distances. The photo is written to the documents directory; if the "Save photos to camera roll" setting is on, it is also written to the Photos library. A `CapturedPage` row is created.
+2. For capture: the user frames a manga page and triggers the shutter. The camera uses `.builtInTripleCamera` / `.builtInDualWideCamera` so iOS auto-switches to the ultra-wide constituent at macro distances. The shot opens fullscreen in `CapturePreviewView` with **Mine sentences** (primary) and **Retake** (secondary) buttons (Phase 1 polish, PR #13). On Mine sentences the photo is written to the documents directory and a `CapturedPage` row is created; if the "Save photos to camera roll" setting is on, the photo is also written to the Photos library at this moment (so retaken shots never end up in the user's library). On Retake the camera reopens with no side effects.
 3. For gallery import: the picked image is written to the documents directory the same way (never re-saved back to the gallery, regardless of the camera-roll toggle). A `CapturedPage` row is created.
 4. The OCR pipeline (Section 5) runs on the image. The user sees a progress indicator while it runs.
 5. The pipeline emits a list of bubble candidates, each with original Japanese text, full hiragana reading, and Turkish translation. SFX bubbles are already filtered out by the prompt.
@@ -357,6 +395,14 @@ The Gemini prompt instructs the model to:
 
 Combined with `temperature: 0` and Gemini's native JSON-mode `responseSchema`, this produces verbatim output ~95% of the time on real manga pages. Remaining errors are paraphrasing nudges, not OCR misreads.
 
+### Reading override on save (Phase 1 polish)
+
+The LLM-supplied `reading` is **not the source of truth** in storage. On save (in `CandidatePickerView.commit`), `JapaneseTokenizer.hiraganaReading(of:)` regenerates the sentence reading from Mecab + IPADIC and overwrites the LLM value before the `Sentence` row is inserted.
+
+This was added because Gemini occasionally produces character-by-character kun-yomi readings on kanji compounds that take on-yomi (e.g. 心臓 → こころぞう instead of しんぞう). Mecab is dictionary-grounded and gets these right.
+
+The override is skipped if the user manually edited the reading line in the picker UI before tapping Save — their edit is treated as authoritative.
+
 ### Failure modes
 
 | Condition | UX |
@@ -367,7 +413,7 @@ Combined with `temperature: 0` and Gemini's native JSON-mode `responseSchema`, t
 | Empty bubble list (blank page) | Failure view "No text found. Try re-shooting." |
 | Couldn't load the captured photo | Failure view "Couldn't load captured photo from disk." |
 
-In every case the `CapturedPage` row and its photo file are retained — the failure view's "Back" returns the user to the home screen without deleting anything.
+In every case the `CapturedPage` row and its photo file are retained — the failure view's "Back" returns the user to the home screen without deleting anything. All non-API-key failures additionally surface a **Retry** button (Phase 1 polish, PR #12) that re-runs the pipeline against the same on-disk image without requiring re-shoot.
 
 ### Cost / latency observability
 
@@ -383,7 +429,63 @@ In every case the `CapturedPage` row and its photo file are retained — the fai
 
 ## 6. Tokenization & Word Selection
 
-[To be drafted]
+> **Status:** shipped in Phase 1.
+
+### Engine choice
+
+`shinjukunian/Mecab-Swift` (SwiftPM, master branch) wrapping the MeCab C++ engine, with the bundled `IPADic` library product as the dictionary. This was substituted for the originally-planned Sudachi because no maintained Sudachi-on-Swift implementation exists as of 2026; Lindera has no Swift bindings; Apple's `NLTagger` provides Japanese tokenization but no readings or lemmas.
+
+IPADIC is older than Unidic but adequate for manga vocabulary, and it ships *inside* the Mecab-Swift package — no manual resource bundling, no separate ~50 MB asset to ship.
+
+### Concurrency model
+
+`MangaMining/Tokenizer/JapaneseTokenizer.swift` is a Swift `actor` because MeCab itself is thread-unsafe. The tagger is initialized lazily on first call. The actor is exposed via `JapaneseTokenizer.shared` because actors cannot conform to `Observable` for SwiftUI's `.environment(_:)` API.
+
+```swift
+struct JapaneseToken: Sendable, Equatable {
+    var surface: String       // word as it appears in text
+    var lemma: String         // dictionary form; falls back to surface if empty
+    var reading: String       // hiragana (transliterated from IPADIC's katakana)
+    var partOfSpeech: String  // "noun" / "verb" / "particle" / etc.
+    var range: Range<String.Index>  // position in the source string
+}
+
+actor JapaneseTokenizer {
+    static let shared: JapaneseTokenizer
+    func tokenize(_ text: String) throws -> [JapaneseToken]
+    func hiraganaReading(of text: String) throws -> String
+}
+```
+
+`hiraganaReading(of:)` joins per-token readings to produce a sentence-level hiragana string, falling back to the surface form for punctuation / unknown tokens. This is used by `CandidatePickerView` to override the LLM-supplied sentence reading on save (see §5 "Reading override on save").
+
+### Cloze picking flow
+
+Per spec §3 "Pick clozes from a saved sentence":
+
+1. From sentence detail, the user opens `ClozePickerView`.
+2. The view tokenizes `sentence.text` once via `JapaneseTokenizer.shared`.
+3. Each token is rendered as a tap-target chip in a wrapping `FlowLayout` (`MangaMining/Views/FlowLayout.swift`).
+4. Tokens whose character range overlaps an existing `Cloze` are dimmed and disabled; remaining tokens toggle on/off when tapped.
+5. On confirm, one `Cloze` row is created per selected token. `start_offset`/`end_offset` are character distances from `text.startIndex` to the token's `range.lowerBound`/`upperBound`. `lemma`, `reading`, `part_of_speech`, `surface_form` come straight from the token.
+6. Each new `Cloze` is immediately routed through `SchedulingService.createInitialQuestion(for:in:settings:)` to materialize its `ClozeQuestion`.
+
+### Distractor selection
+
+Per `MangaMining/Review/AnswerOptionsBuilder.swift`, applied at quiz-time (not at cloze-pick time):
+
+1. **Candidate pool** = all `Cloze` rows across the whole library where `lemma != target.lemma`, deduped by `surfaceForm` (so the same word doesn't appear twice in one question).
+2. **Filter by POS:** `partOfSpeech == target.partOfSpeech`.
+3. **Filter by length:** `abs(surface.count - target.surface.count) <= 1`.
+4. **Pick 3** at random from what survives.
+5. **Widening fallback** if fewer than 3 survive: relax the length filter, then the POS filter, then fall back to any other cloze.
+6. **Combine with the correct answer; shuffle.**
+
+JMdict is explicitly NOT used — distractors come exclusively from the user's own mined-word pool. JMdict-based distractors remain a Phase 2 candidate per §2, to be promoted only if the mined-pool quality proves insufficient in real use.
+
+### Why a tokenizer is needed at all
+
+Worth stating explicitly because the LLM call already returns a hiragana reading: cloze picking requires (a) word-boundary detection in unspaced Japanese text so each token is a tap target, (b) per-word lemmas so distractors don't show the same word in three conjugations, (c) per-word readings for furigana ruby on individual kanji words (the LLM gives a sentence-level blob), and (d) part-of-speech tags for distractor filtering. The LLM cannot replace this without per-word boundary annotations on every page, which would multiply OCR latency and cost.
 
 ---
 
