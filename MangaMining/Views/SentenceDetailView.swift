@@ -11,6 +11,7 @@ struct SentenceDetailView: View {
     @State private var draftReading: String = ""
     @State private var draftTranslation: String = ""
     @State private var showDeleteConfirm = false
+    @State private var showClozePicker = false
 
     var body: some View {
         Form {
@@ -56,6 +57,37 @@ struct SentenceDetailView: View {
             }
 
             Section {
+                Button {
+                    showClozePicker = true
+                } label: {
+                    Label(
+                        sentence.hasClozes ? "Pick more clozes" : "Pick clozes",
+                        systemImage: "highlighter"
+                    )
+                }
+                .disabled(isEditing)
+            } header: {
+                Text("Clozes")
+            } footer: {
+                if sentence.hasClozes {
+                    Text("Editing the sentence is locked while clozes exist.")
+                }
+            }
+
+            if !sentence.clozes.isEmpty {
+                Section("Picked words (\(sentence.clozes.count))") {
+                    ForEach(sentence.clozes.sorted(by: { $0.startOffset < $1.startOffset })) { cloze in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(cloze.surfaceForm).font(.body)
+                            Text("\(cloze.lemma) · \(cloze.reading) · \(cloze.partOfSpeech)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+
+            Section {
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
@@ -65,6 +97,9 @@ struct SentenceDetailView: View {
         }
         .navigationTitle("Sentence")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showClozePicker) {
+            ClozePickerView(sentence: sentence)
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {
