@@ -78,7 +78,7 @@ struct SentenceDetailView: View {
                         }
                         isEditing = false
                     }
-                } else {
+                } else if !sentence.hasClozes {
                     Button("Edit") {
                         draftText = sentence.text
                         draftReading = sentence.reading ?? ""

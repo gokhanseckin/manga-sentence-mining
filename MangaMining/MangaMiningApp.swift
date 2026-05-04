@@ -10,6 +10,12 @@ struct MangaMiningApp: App {
             HomeView()
                 .environment(settings)
         }
-        .modelContainer(for: [CapturedPage.self, Sentence.self])
+        .modelContainer(for: [
+            CapturedPage.self,
+            Sentence.self,
+            Cloze.self,
+            ClozeQuestion.self,
+            ReviewEvent.self
+        ])
     }
 }
