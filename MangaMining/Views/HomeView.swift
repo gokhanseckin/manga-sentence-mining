@@ -5,10 +5,25 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SettingsStore.self) private var settings
+    @Query(filter: #Predicate<ClozeQuestion> { !$0.isKnown }, sort: \ClozeQuestion.nextReviewAt)
+    private var activeQuestions: [ClozeQuestion]
     @State private var showCamera = false
     @State private var showSettings = false
+    @State private var showReview = false
     @State private var capturedPage: CapturedPage?
     @State private var pickerItem: PhotosPickerItem?
+
+    private var dueCount: Int {
+        let now = Date.now
+        return activeQuestions.prefix { $0.nextReviewAt <= now }.count
+    }
+
+    private var captureLabel: some View {
+        Label("Capture", systemImage: "camera.fill")
+            .font(.headline)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,17 +41,45 @@ struct HomeView: View {
 
                 Spacer()
 
-                Button {
-                    showCamera = true
-                } label: {
-                    Label("Capture", systemImage: "camera.fill")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
+                if dueCount > 0 {
+                    Button {
+                        showReview = true
+                    } label: {
+                        Label("Review (\(dueCount) due)", systemImage: "rectangle.stack.fill")
+                            .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.horizontal)
+                } else if !activeQuestions.isEmpty {
+                    Text("All caught up — mine more sentences")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal)
                 }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .padding(.horizontal)
+
+                if dueCount > 0 {
+                    Button {
+                        showCamera = true
+                    } label: {
+                        captureLabel
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .padding(.horizontal)
+                } else {
+                    Button {
+                        showCamera = true
+                    } label: {
+                        captureLabel
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+                    .padding(.horizontal)
+                }
 
                 PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
                     Label("Open from gallery", systemImage: "photo.on.rectangle")
@@ -75,6 +118,9 @@ struct HomeView: View {
                 NavigationStack {
                     SettingsView()
                 }
+            }
+            .sheet(isPresented: $showReview) {
+                ReviewView()
             }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraView { image in

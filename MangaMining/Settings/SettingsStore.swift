@@ -6,6 +6,17 @@ import Observation
 final class SettingsStore {
     private let providerKey = "ocr_provider_kind"
     private let saveToCameraRollKey = "save_to_camera_roll"
+    private let sessionSizeKey = "session_size"
+    private let ebisuAlphaKey = "ebisu_default_alpha"
+    private let ebisuBetaKey = "ebisu_default_beta"
+    private let ebisuTHoursKey = "ebisu_default_t_hours"
+
+    static let defaultSessionSize = 15
+    static let minSessionSize = 1
+    static let maxSessionSize = 50
+    static let defaultEbisuAlpha = 3.0
+    static let defaultEbisuBeta = 3.0
+    static let defaultEbisuTHours = 24.0
 
     var providerKind: OCRProviderKind {
         didSet {
@@ -19,6 +30,29 @@ final class SettingsStore {
         }
     }
 
+    var sessionSize: Int {
+        didSet {
+            let clamped = min(max(sessionSize, Self.minSessionSize), Self.maxSessionSize)
+            if clamped != sessionSize {
+                sessionSize = clamped
+                return
+            }
+            UserDefaults.standard.set(sessionSize, forKey: sessionSizeKey)
+        }
+    }
+
+    var ebisuDefaultAlpha: Double {
+        didSet { UserDefaults.standard.set(ebisuDefaultAlpha, forKey: ebisuAlphaKey) }
+    }
+
+    var ebisuDefaultBeta: Double {
+        didSet { UserDefaults.standard.set(ebisuDefaultBeta, forKey: ebisuBetaKey) }
+    }
+
+    var ebisuDefaultTHours: Double {
+        didSet { UserDefaults.standard.set(ebisuDefaultTHours, forKey: ebisuTHoursKey) }
+    }
+
     init() {
         if let raw = UserDefaults.standard.string(forKey: providerKey),
            let kind = OCRProviderKind(rawValue: raw) {
@@ -27,6 +61,14 @@ final class SettingsStore {
             self.providerKind = .geminiFlash
         }
         self.saveToCameraRoll = UserDefaults.standard.bool(forKey: saveToCameraRollKey)
+        let storedSession = UserDefaults.standard.integer(forKey: sessionSizeKey)
+        self.sessionSize = storedSession == 0 ? Self.defaultSessionSize : storedSession
+        let storedAlpha = UserDefaults.standard.double(forKey: ebisuAlphaKey)
+        self.ebisuDefaultAlpha = storedAlpha == 0 ? Self.defaultEbisuAlpha : storedAlpha
+        let storedBeta = UserDefaults.standard.double(forKey: ebisuBetaKey)
+        self.ebisuDefaultBeta = storedBeta == 0 ? Self.defaultEbisuBeta : storedBeta
+        let storedT = UserDefaults.standard.double(forKey: ebisuTHoursKey)
+        self.ebisuDefaultTHours = storedT == 0 ? Self.defaultEbisuTHours : storedT
     }
 
     func apiKey(for kind: OCRProviderKind) -> String {
