@@ -76,11 +76,11 @@ struct GeminiFlashProvider: OCRProvider {
 
     private static let promptText = """
     For every Japanese speech bubble in this manga page, return one entry with:
-    - text: original Japanese as printed (kanji + kana, including punctuation)
-    - reading: the SAME sentence rewritten entirely in hiragana, converting every kanji to its in-context reading. Keep punctuation and elongation marks (ー, …) as in the original.
+    - text: TRANSCRIBE the original Japanese EXACTLY as printed, character-for-character. Do NOT rephrase, normalize particles, fix grammar, or change word order — even if the printed text seems unusual or ungrammatical. Preserve every kanji, kana, punctuation mark, ellipsis (・・・, …), elongation (ー), and exclamation (!!, ！？). The goal is faithful OCR, not editing.
+    - reading: the SAME sentence rewritten entirely in hiragana, converting every kanji to its in-context reading. Keep punctuation and elongation marks identical to `text`. Word order must match `text` exactly.
     - translationTr: natural conversational Turkish translation. Preserve manga tone — interjections, sentence-final particle nuance, and informality.
     - bbox: [x, y, w, h] normalized 0–1 against the image, where the bubble is located.
-    Order entries in natural reading order: top-right → bottom-left for vertical Japanese text, top-left → bottom-right for horizontal text. Skip pure sound-effect bubbles (ドン, ガーン, ボッ, バン, etc.). Return ONLY the JSON array, no surrounding prose.
+    Order entries in natural reading order: top-right → bottom-left for vertical Japanese text, top-left → bottom-right for horizontal text. Skip pure sound-effect bubbles (ドン, ガーン, ボッ, バン, ぐいっ, etc.). Return ONLY the JSON array, no surrounding prose.
     """
 
     private static func body(jpegBase64: String) -> [String: Any] {
@@ -92,6 +92,7 @@ struct GeminiFlashProvider: OCRProvider {
                 ]
             ]],
             "generationConfig": [
+                "temperature": 0,
                 "responseMimeType": "application/json",
                 "responseSchema": [
                     "type": "ARRAY",

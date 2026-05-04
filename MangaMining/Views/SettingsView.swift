@@ -20,6 +20,12 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle("Save photos to camera roll", isOn: $settings.saveToCameraRoll)
+            } footer: {
+                Text("When enabled, captured pages are also saved to your iOS Photos library.")
+            }
+
+            Section {
                 SecureField("\(settings.providerKind.displayName) key", text: $apiKeyDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()

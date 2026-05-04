@@ -1,4 +1,5 @@
 import Foundation
+import Photos
 import UIKit
 
 enum PhotoStoreError: Error {
@@ -37,6 +38,39 @@ struct PhotoStore {
             throw PhotoStoreError.writeFailed(error)
         }
         return "\(photosSubdir)/\(filename)"
+    }
+
+    /// Saves the image to the user's Photos library. Requests add-only authorization
+    /// on first use. Errors are logged but never thrown — camera-roll save is a
+    /// best-effort side channel and should not block the OCR pipeline.
+    static func saveToCameraRoll(_ image: UIImage) {
+        let status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        switch status {
+        case .authorized, .limited:
+            performAdd(image)
+        case .notDetermined:
+            PHPhotoLibrary.requestAuthorization(for: .addOnly) { newStatus in
+                if newStatus == .authorized || newStatus == .limited {
+                    performAdd(image)
+                } else {
+                    print("[PhotoStore] camera-roll permission denied: \(newStatus.rawValue)")
+                }
+            }
+        default:
+            print("[PhotoStore] camera-roll save skipped: not authorized (\(status.rawValue))")
+        }
+    }
+
+    private static func performAdd(_ image: UIImage) {
+        PHPhotoLibrary.shared().performChanges {
+            PHAssetChangeRequest.creationRequestForAsset(from: image)
+        } completionHandler: { success, error in
+            if let error {
+                print("[PhotoStore] camera-roll save failed: \(error)")
+            } else if !success {
+                print("[PhotoStore] camera-roll save reported failure with no error")
+            }
+        }
     }
 
     static func loadImage(relativePath: String) -> UIImage? {

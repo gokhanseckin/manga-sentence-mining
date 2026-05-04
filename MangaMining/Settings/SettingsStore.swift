@@ -5,10 +5,17 @@ import Observation
 @MainActor
 final class SettingsStore {
     private let providerKey = "ocr_provider_kind"
+    private let saveToCameraRollKey = "save_to_camera_roll"
 
     var providerKind: OCRProviderKind {
         didSet {
             UserDefaults.standard.set(providerKind.rawValue, forKey: providerKey)
+        }
+    }
+
+    var saveToCameraRoll: Bool {
+        didSet {
+            UserDefaults.standard.set(saveToCameraRoll, forKey: saveToCameraRollKey)
         }
     }
 
@@ -19,6 +26,7 @@ final class SettingsStore {
         } else {
             self.providerKind = .geminiFlash
         }
+        self.saveToCameraRoll = UserDefaults.standard.bool(forKey: saveToCameraRollKey)
     }
 
     func apiKey(for kind: OCRProviderKind) -> String {

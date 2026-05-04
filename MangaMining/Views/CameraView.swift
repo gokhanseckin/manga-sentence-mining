@@ -55,10 +55,16 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
     private func configureSession() {
         session.beginConfiguration()
         session.sessionPreset = .photo
-        if let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
+        // Prefer virtual multi-cam devices so iOS auto-switches to ultra-wide
+        // for macro distances (matches the system Camera app on Pro models).
+        let device = AVCaptureDevice.default(.builtInTripleCamera, for: .video, position: .back)
+            ?? AVCaptureDevice.default(.builtInDualWideCamera, for: .video, position: .back)
+            ?? AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+        if let device,
            let input = try? AVCaptureDeviceInput(device: device),
            session.canAddInput(input) {
             session.addInput(input)
+            try? configureAutoMacro(on: device)
         }
         if session.canAddOutput(photoOutput) {
             session.addOutput(photoOutput)
@@ -100,6 +106,21 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
             cancel.leadingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.leadingAnchor, constant: 16),
             cancel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8)
         ])
+    }
+
+    private func configureAutoMacro(on device: AVCaptureDevice) throws {
+        try device.lockForConfiguration()
+        defer { device.unlockForConfiguration() }
+        // Start at zoom 1.0 (wide). On .builtInTripleCamera / .builtInDualWideCamera
+        // iOS auto-switches the constituent device to ultra-wide for close focus,
+        // which is the macro behavior used by the system Camera app on Pro models.
+        device.videoZoomFactor = 1.0
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+            device.focusMode = .continuousAutoFocus
+        }
+        if device.isExposureModeSupported(.continuousAutoExposure) {
+            device.exposureMode = .continuousAutoExposure
+        }
     }
 
     @objc private func handleShutter() {

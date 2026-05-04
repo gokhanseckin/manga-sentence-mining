@@ -29,6 +29,8 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         NSCameraUsageDescription: Manga Mining needs camera access to capture printed manga pages and OCR the text.
+        NSPhotoLibraryAddUsageDescription: Manga Mining can save captured pages to your Photos library when the camera-roll setting is on.
+        NSPhotoLibraryUsageDescription: Manga Mining lets you pick existing manga photos from your Photos library to OCR.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.gokhanseckin.mangamining
