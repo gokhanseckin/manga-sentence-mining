@@ -11,13 +11,13 @@
 
 A native iOS app for mining sentences from printed manga and learning Japanese vocabulary from them via Bayesian-scheduled multiple-choice cloze-deletion questions.
 
-The user points the camera at a manga page, the app OCRs the page, the user picks which sentences to save, and (from Phase 1) which words within those sentences to quiz. Every chosen word produces one quiz item: a sentence with that word blanked and four kanji answer options below it. A **furigana toggle button** is available on every question — tapping it reveals furigana on every kanji-bearing word currently visible (sentence context and answer options); tapping again hides them. It is the user's escape hatch when they know the word phonetically but cannot read its kanji.
+The user points the camera at a manga page (or imports one from the gallery), the app sends the page to a cloud VLM (Gemini 2.5 Flash) which returns each speech bubble as `{original Japanese, full hiragana reading, Turkish translation}`, the user picks which sentences to keep, and (from Phase 1) which words within those sentences to quiz. Every chosen word produces one quiz item: a sentence with that word blanked and four kanji answer options below it. A **furigana toggle button** is available on every question — tapping it reveals furigana on every kanji-bearing word currently visible (sentence context and answer options); tapping again hides them. It is the user's escape hatch when they know the word phonetically but cannot read its kanji.
 
 ### What this is not
 
 - **Not a manga reader.** The camera is the input mechanism for sentence mining only. The app does not display, organize, or store manga as readable content.
-- **Not a dictionary app.** Word-level translation lookups are out of scope for the MVP; sentence-level translation via LLM is the only translation pathway.
-- **Not a generic OCR app.** The pipeline is tuned for manga: speech bubble reconstruction, onomatopoeia filtering, vertical Japanese typography.
+- **Not a dictionary app.** Word-level translation lookups are out of scope for the MVP; sentence-level translation via the OCR VLM is the only translation pathway.
+- **Not a generic OCR app.** The prompt is tuned for manga: speech bubbles, vertical Japanese reading order, onomatopoeia exclusion, manga-tone Turkish output.
 - **Not a flashcard app.** The app uses SRS scheduling but has no flashcards. Every quiz item is a single multiple-choice cloze-deletion question — a sentence with one word blanked, four answer options below, and a tap-to-select interaction. There is no flip, no two-sided study surface, no self-rating ("again / hard / good / easy"), and no recall-then-reveal step. The schema entity is named `ClozeQuestion` rather than the SRS-conventional `Card` specifically to keep this distinction visible in code and to discourage drift back toward the flashcard mental model in future Claude Code sessions.
 
 ### Why it exists
@@ -45,14 +45,14 @@ These are subjective, evaluated by the developer. There is no analytics dashboar
 
 - **Platform:** iOS only, iOS 26+, native Swift / SwiftUI / SwiftData.
 - **Development model:** solo, vibe-coded with Claude Code. This document exists primarily to give Claude Code the context to make consistent architectural choices across sessions.
-- **Backend:** none. No VPS, no server, no auth. LLM API calls go directly from the device using a user-supplied API key stored in Keychain.
+- **Backend:** none. No VPS, no server, no auth. The OCR VLM call goes directly from the device using a user-supplied Gemini API key stored in Keychain. Provider is swappable via an `OCRProvider` protocol — Gemini Flash is the only implementation today; Qwen2.5-VL via Novita and DeepSeek are candidate additions.
 - **Sync:** none in MVP. iCloud sync is a Phase 2 candidate, not a committed anchor — it ships if and when the developer actually wants multi-device support.
 
 ### Reading guide for the rest of this document
 
 - Section 2 (Release Phases) is the spine. Every other section's scope is partitioned by phase.
 - Sections 7 (Cloze Question Model & SRS) and 8 (Data Model) are the most decision-dense. Most other sections cross-reference them.
-- Section 5 (OCR Pipeline) is intentionally a list of unresolved questions to be answered during Phase 0 prototyping rather than upfront.
+- Section 5 (OCR Pipeline) documents the shipped Gemini Flash architecture and the `OCRProvider` seam for future providers.
 - Section 9 (Out of Scope) is load-bearing. It exists to prevent scope creep during vibe-coded sessions; consult it when in doubt about whether a feature belongs in the current phase.
 
 ---
@@ -61,18 +61,22 @@ These are subjective, evaluated by the developer. There is no analytics dashboar
 
 The app ships in two phases plus a candidate-driven post-MVP. Each phase is shipped and used before the next is started. The split exists to derisk the hardest unknown — whether camera-based mining of real manga produces sentences worth studying — before any SRS infrastructure is built.
 
-### Phase 0 — Prototype
+### Phase 0 — Prototype (shipped)
 
-**Goal:** validate that camera → cleaned sentences works on real manga, before investing in SRS.
+**Goal:** validate that camera → cleaned, translated sentences works on real manga, before investing in SRS.
 
-**In scope:**
+**Status:** complete and in daily use by the developer. Quality on real pages is ~95%; remaining errors are paraphrasing nudges from the VLM rather than OCR misreads.
 
-- Camera capture of a printed manga page
-- Whole-page OCR via manga-ocr (ONNX Runtime)
-- Sentence reconstruction across multiple speech bubbles
-- Onomatopoeia / sound-effect filtering (not saved as sentences)
-- User picks which detected sentences to save (sentence-level only — no word selection)
-- Flat list of saved sentences with timestamp and source page reference
+**In scope (shipped):**
+
+- Camera capture of a printed manga page using `.builtInTripleCamera` / `.builtInDualWideCamera` so iOS auto-switches to ultra-wide for macro distances (matches the system Camera app on Pro models)
+- "Open from gallery" import via `PhotosPicker` for shots taken with the system Camera app
+- Optional "Save photos to camera roll" toggle in Settings (off by default; add-only Photos auth requested on first save)
+- Whole-page OCR via Gemini 2.5 Flash as a cloud VLM. One HTTPS call per page returns a JSON array of `{text, reading, translationTr, bbox}` per speech bubble
+- Settings screen with provider picker (single option today: Gemini Flash) and Keychain-backed API key entry
+- Sentence-level translation **happens in the same OCR call** — original Japanese, full hiragana reading, and Turkish translation are produced together. No separate LLM translation pass.
+- User picks which detected sentences to save (sentence-level only — no word selection); each row shows original / hiragana / Turkish, all editable
+- Flat list of saved sentences with original + Turkish translation; detail view shows all three lines
 - Local storage only
 
 **Anti-goals (explicitly NOT in Phase 0):**
@@ -83,14 +87,13 @@ The app ships in two phases plus a candidate-driven post-MVP. Each phase is ship
 - No iCloud sync
 - No JMdict, no KANJIDIC, no Sudachi tokenization
 - No "mark as known" or any review actions
+- No on-device OCR fallback (manga-ocr ONNX runtime was removed when the VLM proved better)
 
-**Success criteria (qualitative, evaluated by feel on real manga):**
+**Success criteria (met):**
 
-- Sentences that span multiple bubbles are reconstructed start-to-end
-- Onomatopoeia and sound effects are reliably distinguished from dialogue and excluded from the saved list
-- The saved list contains studyable sentences, not OCR garbage
-
-When the developer is satisfied with these on real pages, Phase 0 is done. There is no measurable gate.
+- Sentences in vertical-text bubbles are read in correct top-right → bottom-left order
+- Onomatopoeia / sound effects are reliably skipped (the prompt instructs the VLM to drop pure SFX bubbles like ドン, ガーン, ボッ)
+- Hiragana reading and Turkish translation are usable as study material out of the box
 
 ### Phase 1 — MVP
 
@@ -106,9 +109,8 @@ When the developer is satisfied with these on real pages, Phase 0 is done. There
 - Distractors drawn from the user's own mined-word pool, filtered by part-of-speech and similar surface-form length
 - "Mark as known" toggle to exclude a cloze question from review
 - Furigana toggle button on every question
-- Optional per-sentence translation via single hardcoded LLM provider, cached on the sentence
 
-Still local storage only.
+Translation already exists from Phase 0; no new translation work in Phase 1. Still local storage only.
 
 ### Phase 2+ — Candidates (no committed scope)
 
@@ -117,10 +119,11 @@ The MVP ends with Phase 1. What ships next depends on what the developer actuall
 - iCloud sync via private CloudKit
 - JMdict / KANJIDIC bundled, used for higher-quality distractors (similar stroke count, similar reading length)
 - JMdict Turkish gloss layer (LLM-pre-translated at build time, bundled)
-- Apple Vision OCR as a selectable alternative engine (for menus, signs, real-world text)
-- Cloud LLM OCR (Claude / DeepSeek vision) as a selectable alternative engine (for handwritten text, low-quality scans)
-- Multi-provider LLM dropdown for translation
-- OCR re-processing flow (re-run OCR on a saved page with a different engine)
+- Additional `OCRProvider` implementations: Qwen2.5-VL via Novita, DeepSeek vision (the protocol seam already exists in `MangaMining/OCR/OCRProvider.swift`)
+- Apple Vision OCR as a selectable on-device alternative engine (for offline use)
+- OCR re-processing flow (re-run a different provider on a saved page)
+- Per-word furigana ruby annotations layered on the original `text` (Phase 0 ships sentence-level hiragana only)
+- Panel grouping in storage (bbox y-position can derive panels later if useful)
 - Audio / TTS
 - Anki export
 - Time-weighted scoring (fast/slow/wrong buckets feeding Ebisu's noisy-binary update)
@@ -129,7 +132,7 @@ When a Phase 2 feature is committed, this section is updated with its scope.
 
 ### Phase 0 schema scope
 
-Phase 0's schema contains only `CapturedPage` and `Sentence`. The Phase 1 entities (`Cloze`, `ClozeQuestion`, `ReviewEvent`) are added via SwiftData's lightweight migration when Phase 1 begins. Adding new entities is a trivial migration that does not touch existing rows, so this is not a "data migration" risk in any meaningful sense.
+Phase 0's schema contains only `CapturedPage` and `Sentence` (the latter with optional `reading` and `translationTr` fields populated from the VLM response). The Phase 1 entities (`Cloze`, `ClozeQuestion`, `ReviewEvent`) are added via SwiftData's lightweight migration when Phase 1 begins. Adding new entities is a trivial migration that does not touch existing rows, so this is not a "data migration" risk in any meaningful sense.
 
 ### UI polish baseline
 
@@ -151,16 +154,17 @@ Flows are grouped by phase introduction. A flow listed under Phase 0 also applie
 
 #### Capture and save sentences
 
-The core Phase 0 loop. The user shoots one printed manga page at a time. There is no batch-shooting mode and no queue of unprocessed pages — each capture is processed and resolved before the next is taken.
+The core Phase 0 loop. The user shoots one printed manga page at a time, or imports one from the gallery. There is no batch-shooting mode and no queue of unprocessed pages — each page is processed and resolved before the next is taken.
 
-1. From the home screen, the user opens the camera.
-2. The user frames a manga page and triggers the shutter. The photo is written to the documents directory and a `CapturedPage` row is created.
-3. The OCR pipeline (Section 5) runs on the photo. The user sees a progress indicator while it runs.
-4. The pipeline emits a list of reconstructed sentence candidates with onomatopoeia / SFX already filtered out.
-5. The user is presented with the candidate list and multi-selects which to keep. Unpicked candidates are discarded.
-6. On confirm, one `Sentence` row is created per picked candidate. The user returns to the home screen.
+1. From the home screen, the user either taps **Capture** to open the in-app camera, or **Open from gallery** to pick a photo via `PhotosPicker`.
+2. For capture: the user frames a manga page and triggers the shutter. The camera uses `.builtInTripleCamera` / `.builtInDualWideCamera` so iOS auto-switches to the ultra-wide constituent at macro distances. The photo is written to the documents directory; if the "Save photos to camera roll" setting is on, it is also written to the Photos library. A `CapturedPage` row is created.
+3. For gallery import: the picked image is written to the documents directory the same way (never re-saved back to the gallery, regardless of the camera-roll toggle). A `CapturedPage` row is created.
+4. The OCR pipeline (Section 5) runs on the image. The user sees a progress indicator while it runs.
+5. The pipeline emits a list of bubble candidates, each with original Japanese text, full hiragana reading, and Turkish translation. SFX bubbles are already filtered out by the prompt.
+6. The user is presented with the candidate list. Each row shows the three lines (original / hiragana / Turkish), all editable, with a per-row toggle. Unpicked candidates are discarded.
+7. On confirm, one `Sentence` row is created per picked candidate, persisting all three fields. The user returns to the home screen.
 
-The user may now shoot the next page, browse saved sentences, or close the app. In Phase 0, this is the entire user loop.
+The user may now process the next page, browse saved sentences, or close the app. In Phase 0, this is the entire user loop.
 
 #### Capture failure recovery
 
@@ -170,13 +174,13 @@ What this section commits to is independent of how failures are surfaced: the ph
 
 #### Browse saved sentences
 
-Reachable from the home screen via a "Saved sentences" entry. Shows all `Sentence` rows in reverse chronological order by `created_at`. There is no folder, tag, manga, or volume grouping in the MVP — Section 8 deliberately omits a `Manga` entity.
+Reachable from the home screen via a "Saved sentences" entry. Shows all `Sentence` rows in reverse chronological order by `created_at`, with original Japanese as the primary line and Turkish translation as the secondary line in each row. There is no folder, tag, manga, or volume grouping in the MVP — Section 8 deliberately omits a `Manga` entity.
 
-Tapping a sentence opens a detail view showing the full text, source page reference, timestamp, and (Phase 1+) any clozes and their cloze questions.
+Tapping a sentence opens a detail view showing all three lines (original / hiragana / Turkish), source page reference, timestamp, and (Phase 1+) any clozes and their cloze questions.
 
-#### Edit sentence text
+#### Edit sentence text, reading, and translation
 
-From the sentence detail view, the user can edit `Sentence.text` **only when no `Cloze` rows reference it.** Once any cloze has been picked from a sentence, the edit action is hidden in the detail view and `Sentence.text` becomes immutable.
+From the sentence detail view, the user can edit `Sentence.text`, `Sentence.reading`, and `Sentence.translationTr` **only when no `Cloze` rows reference the sentence.** Once any cloze has been picked, the edit action is hidden and all three fields become immutable.
 
 This rule eliminates the split-state problem of "existing cloze questions display old text vs. new text" without snapshotting sentence text on `Cloze`. If the user wants to change the text after clozing, the recourse is to delete the cloze questions, edit, then re-pick clozes.
 
@@ -186,7 +190,9 @@ From the sentence detail view, the user can delete a sentence. Deletion is hard-
 
 The semantic is: deleting a sentence means "I'm done studying this entirely." If the user wants to keep studying clozes from a sentence, they don't delete it. Soft-delete machinery is not used.
 
-### Cloze picking and translation (Phase 1+)
+### Cloze picking (Phase 1+)
+
+> Translation already happens in Phase 0 as part of the OCR call. There is no separate translation flow in Phase 1.
 
 #### Pick clozes from a saved sentence
 
@@ -196,26 +202,12 @@ Cloze picking is a separate task initiated from the sentence detail view, never 
 2. The sentence is tokenized via Sudachi (Section 6). Each token is rendered as a tap target with its surface form.
 3. The user taps one or more tokens to mark them as cloze positions. There is no upper bound on clozes per sentence.
 4. On confirm, one `Cloze` row is created per marked position, and one `ClozeQuestion` row is created per `Cloze` (per Section 7).
-5. The auto-translation request fires (see below).
 
 #### Add more clozes later
 
 The user can return to the cloze-picking action on a sentence that already has clozes. Existing cloze positions are visible (and not re-tappable), and additional tokens can be marked. This produces new `Cloze` and `ClozeQuestion` rows alongside the existing ones; existing cloze questions are unaffected and retain their SRS state.
 
 There is no flow to "remove" a cloze in the MVP. To stop reviewing a cloze question, the user marks it known (Section 7) or deletes the cloze question (below).
-
-#### Auto-translation
-
-A sentence's Turkish translation is fetched only after at least one cloze has been picked from it. Sentences saved but never clozed never trigger an LLM call. The trigger is the cloze-confirmation step above.
-
-Translation runs asynchronously in the background; the user is not blocked on it. On success, `Sentence.translation_tr` is populated.
-
-Translation is best-effort and silent on failure:
-
-- **No API key set:** no call is made; nothing is shown.
-- **Network or LLM error:** at most one retry, then abandoned. Nothing is shown to the user.
-
-There is no manual "translate now" button in the MVP.
 
 ### Review (Phase 1+)
 
@@ -264,15 +256,23 @@ When the due query returns zero cloze questions, the home screen replaces the "R
 
 #### First launch (Phase 0)
 
-No API key is required to use Phase 0. The app opens to an empty home screen with a single "Capture" CTA. No onboarding, no walkthrough.
+The app opens to a home screen with **Capture**, **Open from gallery**, and **Saved sentences** entries plus a settings gear. No onboarding, no walkthrough. A Gemini API key is required for OCR — the user is expected to discover this on their first capture: the OCR call returns an "API key missing" failure view with an "Open Settings" button that takes them to the key entry field.
+
+This lazy "discover via the failure view" pattern is intentional. It avoids a forced onboarding screen for users who just want to look around, and treats the Settings → API key flow as the canonical onboarding path.
 
 #### First launch (Phase 1)
 
-API key entry is part of the Phase 1 setup, but the exact onboarding mechanics — required up front vs. lazy on first translation, Keychain UX — are not yet decided. Surfaced in Section 10.
+No additional API-key setup beyond Phase 0 — the same Gemini key already covers everything.
 
 #### Settings
 
-Reachable from the home screen. The adjustable values are stored in `UserDefaults` (per Section 8): session size, Ebisu prior values, and the LLM API key reference. The settings screen is utilitarian: a flat list of fields with current values and inline editors.
+Reachable from the home screen via the gear icon. Phase 0 settings:
+
+- **OCR provider** — picker (single option today: Gemini 2.5 Flash; the protocol allows future providers without UI changes)
+- **API key** — `SecureField` for the active provider's key, stored in iOS Keychain (`kSecClassGenericPassword`, account `gemini_api_key`, accessible after first unlock). Includes a "Remove saved key" action.
+- **Save photos to camera roll** — toggle, off by default. When on, captured pages are also written to the Photos library (add-only auth, requested on first save). Gallery imports are never re-saved.
+
+Phase 1 will add: session size, Ebisu prior values. The settings screen is utilitarian: a flat `Form` with current values and inline editors.
 
 ### Phase scope summary
 
@@ -284,15 +284,15 @@ Reachable from the home screen. The adjustable values are stored in `UserDefault
 | Edit sentence text (only when un-clozed) | yes | yes |
 | Delete sentence (cascading) | yes | yes |
 | Pick clozes / add more clozes | — | yes |
-| Auto-translation | — | yes |
+| Translation (now part of OCR) | yes | yes |
 | Start review session | — | yes |
 | Cloze question interaction (answer, furigana toggle, known toggle) | — | yes |
 | Delete cloze question | — | yes |
 | Lapse re-queue | — | yes |
 | Mid-session abandon | — | yes |
 | All-caught-up state | — | yes |
-| First-launch onboarding | minimal, no key | API-key entry (TBD, Section 10) |
-| Settings | minimal | full settings |
+| First-launch onboarding | discover-via-failure-view for API key | same as Phase 0 |
+| Settings | provider, API key, camera-roll toggle | + session size + Ebisu priors |
 
 ### Cross-references
 
@@ -312,91 +312,72 @@ This is html but you'll build a native app and implement similar design . You ca
 
 ## 5. OCR Pipeline
 
-> **Status:** open. Phase 0 cannot ship without resolving the questions in this section. Decisions deferred until prototype-time experimentation.
+> **Status:** resolved. Phase 0 ships with a single-call cloud VLM pipeline. The earlier on-device manga-ocr (ONNX Runtime) approach was prototyped, found insufficient on real pages, and removed.
 
-### Constraint
+### Architecture
 
-Phase 0's success criteria (Section 2) are entirely OCR-pipeline problems:
+```
+UIImage
+  └─ OCRPipeline.process(image:)
+       └─ image.normalizedOrientation()
+       └─ provider.recognize(image:)         // OCRProvider protocol
+            └─ GeminiFlashProvider           // only impl today
+                 ├─ downscale to longEdge ≤ 1568 px, JPEG q=0.85
+                 ├─ POST gemini-2.5-flash:generateContent
+                 │     responseMimeType: application/json
+                 │     temperature: 0
+                 │     responseSchema: array of {text, reading, translationTr, bbox}
+                 └─ decode → [SentenceCandidate]
+```
 
-- Sentences spanning multiple speech bubbles must be reconstructed start-to-end
-- Onomatopoeia and sound effects must be reliably distinguished from dialogue
-- The saved sentence list must contain studyable sentences, not OCR garbage
+`SentenceCandidate` carries `text` (original Japanese), `reading` (full hiragana of the same sentence), `translationTr` (Turkish), and `sourceRegions: [CGRect]` denormalized into image-pixel space.
 
-manga-ocr alone solves none of these. It OCRs whatever crop is passed to it. Everything else — bubble detection, reading-order resolution, sentence reconstruction, SFX filtering — is pipeline logic built around manga-ocr.
+### Provider seam
 
-### Engine for Phase 0
+`OCRProvider` is a one-method protocol:
 
-**manga-ocr** via ONNX Runtime on iOS. Pre-converted ONNX weights are available on Hugging Face (`mayocream/manga-ocr-onnx`, `l0wgear/manga-ocr-2025-onnx`). Future swap to Core ML for Neural Engine acceleration is deferred.
+```swift
+protocol OCRProvider: Sendable {
+    func recognize(image: UIImage) async throws -> [SentenceCandidate]
+}
+```
 
-**No `OCREngine` protocol abstraction in Phase 0.** Direct, single concrete implementation. When and if a second engine is added (Phase 2 candidate), refactor to a protocol then. Premature interface design is a known Claude Code failure mode.
+`OCRProviderKind` is the user-facing enum (`.geminiFlash` today). `SettingsStore.makeProvider()` builds the active concrete provider by reading the API key from Keychain. Adding Qwen2.5-VL (Novita) or DeepSeek means writing a new struct conforming to `OCRProvider` and adding a case to `OCRProviderKind` — no caller changes.
 
-### Open questions (to resolve before / during Phase 0 prototyping)
+### Prompt design (the load-bearing part)
 
-#### 5.1 Speech bubble detection
+The Gemini prompt instructs the model to:
 
-How are bubble regions located on the page? manga-ocr expects pre-cropped bubbles, so something must find them first.
+- Transcribe `text` **exactly as printed**, character-for-character — no rephrasing, no particle normalization, no grammar fixes
+- Produce `reading` as the same sentence rewritten entirely in hiragana, preserving punctuation and word order
+- Produce `translationTr` as natural conversational Turkish, preserving manga tone (interjections, particle nuance)
+- Provide `bbox` as `[x, y, w, h]` normalized 0–1
+- Order entries top-right → bottom-left for vertical Japanese, top-left → bottom-right for horizontal
+- Skip pure SFX bubbles (ドン, ガーン, ボッ, バン, ぐいっ, etc.)
 
-Candidates:
+Combined with `temperature: 0` and Gemini's native JSON-mode `responseSchema`, this produces verbatim output ~95% of the time on real manga pages. Remaining errors are paraphrasing nudges, not OCR misreads.
 
-- **Apple Vision text-region detection.** Free, on-device, fast. Detects "text is here" but not "bubble vs. SFX vs. caption box."
-- **A bundled second ML model** (e.g. comictextdetector, magi-style models). Better bubble semantics, costs another ~50–100 MB and more integration work.
-- **LLM vision call.** Send the page to Claude or DeepSeek, ask for bounding boxes. High quality, slow, network-dependent, costs per call.
+### Failure modes
 
-#### 5.2 Reading order across bubbles
+| Condition | UX |
+|---|---|
+| API key missing or empty | Failure view with key icon, "Add your Gemini API key in Settings" message, "Open Settings" button + "Back" button |
+| HTTP non-2xx from Gemini | Failure view with the HTTP status code and a body snippet |
+| Malformed JSON / empty candidates | Failure view with the malformed-JSON error |
+| Empty bubble list (blank page) | Failure view "No text found. Try re-shooting." |
+| Couldn't load the captured photo | Failure view "Couldn't load captured photo from disk." |
 
-Manga reads right-to-left, top-to-bottom, but layouts are irregular.
+In every case the `CapturedPage` row and its photo file are retained — the failure view's "Back" returns the user to the home screen without deleting anything.
 
-Candidates:
+### Cost / latency observability
 
-- **Rule-based sort** by (top edge, then right edge). Fast, fails on creative layouts.
-- **LLM-driven ordering** after OCR: send detected bubbles + positions, ask for reading order.
-- **Manual reordering** in the UI: show numbered bubbles, let the user fix order if wrong.
-- A combination (rule-based with manual override).
-
-#### 5.3 Sentence reconstruction across bubbles
-
-When does "bubble A" + "bubble B" become "one sentence"? A character speaking often continues across bubbles or panels.
-
-Candidates:
-
-- **Punctuation-driven heuristic:** if bubble A does not end with 。！？ assume continuation into bubble B.
-- **LLM-driven splitting:** send all bubble text to an LLM, ask for sentence segmentation.
-- **No reconstruction:** treat every bubble as one entry; user manually merges in the picker UI.
-
-#### 5.4 Onomatopoeia / SFX filtering
-
-SFX in manga tends to be: outside speech bubbles, in stylized fonts manga-ocr handles poorly, often katakana-only, single short words, exclamatory.
-
-Candidates:
-
-- **Spatial filter:** OCR only inside detected bubble regions, ignore floating text.
-- **Linguistic filter:** OCR everything, then drop entries that are short + katakana-only + no kanji + no particles.
-- **LLM classifier:** per region, ask "dialogue or SFX?"
-- **Combination:** spatial first (cheap), linguistic on remainder, LLM only as fallback.
-
-#### 5.5 Picker UI output granularity
-
-When the user reviews the page's OCR output, what do they see?
-
-Candidates:
-
-- **Reconstructed sentences,** one entry per merged sentence, with a "show source bubbles" detail view.
-- **Per-bubble entries,** user selects bubbles and the app concatenates.
-- **Raw OCR text** with paragraph breaks, user manually edits sentences out.
-
-#### 5.6 Failure-mode UX
-
-What does the user see when:
-
-- No text regions are detected on the page
-- manga-ocr returns nonsense for a region
-- The photo is too blurry to OCR usefully
-
-Candidates: re-shoot prompt, raw output shown for manual editing, error logged with the photo retained, or some combination.
+`GeminiFlashProvider` logs `usageMetadata.{prompt,candidates,total}TokenCount` to the console after each successful call. This is the per-page cost signal the developer uses to eyeball $/page during real use. There is no in-app cost UI.
 
 ### Cross-references
 
 - The `CapturedPage` schema (Section 8) retains the photo regardless of OCR outcome.
+- The Settings screen (Section 3) holds the API key and the provider picker.
+- The `Sentence` schema (Section 8) stores all three VLM-produced fields directly.
 
 ---
 
@@ -536,10 +517,11 @@ The mining unit. Many-to-one with `CapturedPage`.
 | Field | Type | Notes |
 |---|---|---|
 | `id` | `UUID` | |
-| `text` | `String` | Final cleaned sentence as saved by the user. Immutable once any `Cloze` references it (per Section 3). |
-| `captured_page_id` | `UUID` | FK to `CapturedPage` |
-| `created_at` | `Date` | |
-| `translation_tr` | `String?` | LLM-cached Turkish translation, populated on demand |
+| `text` | `String` | Original Japanese as transcribed by the OCR VLM. Immutable once any `Cloze` references the sentence (per Section 3). |
+| `reading` | `String?` | Full hiragana of the same sentence, produced by the OCR VLM in the same call. Immutable once any `Cloze` references the sentence. |
+| `translationTr` | `String?` | Turkish translation, produced by the OCR VLM in the same call. Immutable once any `Cloze` references the sentence. |
+| `capturedPage` | `CapturedPage?` | SwiftData relationship to source page |
+| `createdAt` | `Date` | |
 
 No `Manga` / `Series` / `Volume` entity. Sentences are source-independent. `created_at` and `captured_page_id` are the only grouping signals.
 
@@ -606,23 +588,30 @@ Retained forever. Estimated growth at heavy use (~50 reviews/day) is ~18k rows/y
 
 Preferences live in `UserDefaults`, not SwiftData. A SwiftData entity for ~5 scalar values is overkill.
 
-| Key | Type | Default | Notes |
-|---|---|---|---|
-| `session_size` | `Int` | 15 | Max 50, min 1 |
-| `ebisu_default_alpha` | `Double` | 3.0 | |
-| `ebisu_default_beta` | `Double` | 3.0 | |
-| `ebisu_default_t_hours` | `Double` | 24.0 | |
-| `llm_api_key_keychain_ref` | `String` | — | Identifier into Keychain |
+| Key | Type | Default | Phase | Notes |
+|---|---|---|---|---|
+| `ocr_provider_kind` | `String` | `"geminiFlash"` | 0 | Raw value of `OCRProviderKind` |
+| `save_to_camera_roll` | `Bool` | `false` | 0 | Camera-roll save toggle |
+| `session_size` | `Int` | 15 | 1 | Max 50, min 1 |
+| `ebisu_default_alpha` | `Double` | 3.0 | 1 | |
+| `ebisu_default_beta` | `Double` | 3.0 | 1 | |
+| `ebisu_default_t_hours` | `Double` | 24.0 | 1 | |
 
-LLM provider is hardcoded for MVP (single provider). Multi-provider dropdown is a Phase 2 candidate.
+**Keychain entries** (separate from `UserDefaults`):
+
+| Service | Account | Phase | Notes |
+|---|---|---|---|
+| `com.gokhanseckin.mangamining` | `gemini_api_key` | 0 | `kSecClassGenericPassword`, `kSecAttrAccessibleAfterFirstUnlock` |
+
+Future provider keys will be additional accounts under the same service (`qwen_novita_api_key`, `deepseek_api_key`, etc.) — see `OCRProviderKind.keychainAccount`.
 
 ### Storage of non-SwiftData assets
 
 | Asset | Where | Phase |
 |---|---|---|
 | Captured manga photos | App's documents directory, referenced by relative path | Phase 0+ |
-| LLM API key | iOS Keychain | Phase 1+ |
-| manga-ocr ONNX model | Bundled in app binary, read-only | Phase 0+ |
+| Optional duplicate of captured photo | iOS Photos library (when `save_to_camera_roll == true`) | Phase 0+ |
+| Gemini API key | iOS Keychain | Phase 0+ |
 
 JMdict and KANJIDIC are not bundled in MVP. They are Phase 2 candidates if and when distractor quality from the mined-word pool proves insufficient.
 
