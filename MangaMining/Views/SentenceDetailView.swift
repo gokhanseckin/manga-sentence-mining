@@ -13,6 +13,7 @@ struct SentenceDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var showClozePicker = false
     @State private var showDrillReview = false
+    @State private var showFullImage = false
 
     var body: some View {
         Form {
@@ -55,6 +56,18 @@ struct SentenceDetailView: View {
                 Text(sentence.createdAt.formatted(date: .long, time: .shortened))
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                if let image = sourceImage {
+                    Button {
+                        showFullImage = true
+                    } label: {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             Section {
@@ -110,6 +123,11 @@ struct SentenceDetailView: View {
         .sheet(isPresented: $showDrillReview) {
             ReviewView(drillQuestions: drillQuestions)
         }
+        .fullScreenCover(isPresented: $showFullImage) {
+            if let image = sourceImage {
+                FullImageView(image: image) { showFullImage = false }
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {
@@ -153,6 +171,35 @@ private extension SentenceDetailView {
         sentence.clozes
             .flatMap(\.questions)
             .filter { !$0.isKnown }
+    }
+
+    var sourceImage: UIImage? {
+        guard let path = sentence.capturedPage?.photoRelativePath else { return nil }
+        return PhotoStore.loadImage(relativePath: path)
+    }
+}
+
+private struct FullImageView: View {
+    let image: UIImage
+    let onClose: () -> Void
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            ScrollView([.horizontal, .vertical]) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            Button(action: onClose) {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 32))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .black.opacity(0.6))
+                    .padding()
+            }
+        }
     }
 }
 
