@@ -12,12 +12,21 @@ settings:
     DEVELOPMENT_TEAM: ""
     CODE_SIGN_STYLE: Automatic
     SWIFT_STRICT_CONCURRENCY: complete
+packages:
+  Mecab-Swift:
+    url: https://github.com/shinjukunian/Mecab-Swift
+    branch: master
 targets:
   MangaMining:
     type: application
     platform: iOS
     sources:
       - path: MangaMining
+    dependencies:
+      - package: Mecab-Swift
+        product: Mecab-Swift
+      - package: Mecab-Swift
+        product: IPADic
     info:
       path: MangaMining/Info.plist
       properties:
