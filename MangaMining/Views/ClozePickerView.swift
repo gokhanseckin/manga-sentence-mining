@@ -5,6 +5,7 @@ struct ClozePickerView: View {
     let sentence: Sentence
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(SettingsStore.self) private var settings
 
     @State private var tokens: [JapaneseToken] = []
     @State private var selectedTokenIDs: Set<Int> = []
@@ -133,7 +134,7 @@ struct ClozePickerView: View {
                 partOfSpeech: token.partOfSpeech
             )
             modelContext.insert(cloze)
-            SchedulingService.createInitialQuestion(for: cloze, in: modelContext)
+            SchedulingService.createInitialQuestion(for: cloze, in: modelContext, settings: settings)
         }
         try? modelContext.save()
         dismiss()
