@@ -22,9 +22,15 @@ struct SavedSentencesView: View {
                                 Text(sentence.text)
                                     .font(.body)
                                     .lineLimit(2)
+                                if let tr = sentence.translationTr, !tr.isEmpty {
+                                    Text(tr)
+                                        .font(.callout)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
                                 Text(sentence.createdAt.formatted(date: .abbreviated, time: .shortened))
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.tertiary)
                             }
                             .padding(.vertical, 2)
                         }

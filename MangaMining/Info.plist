@@ -22,6 +22,10 @@
 	<string>1</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Manga Mining needs camera access to capture printed manga pages and OCR the text.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Manga Mining can save captured pages to your Photos library when the camera-roll setting is on.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Manga Mining lets you pick existing manga photos from your Photos library to OCR.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

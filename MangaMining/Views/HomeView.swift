@@ -1,10 +1,14 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(SettingsStore.self) private var settings
     @State private var showCamera = false
+    @State private var showSettings = false
     @State private var capturedPage: CapturedPage?
+    @State private var pickerItem: PhotosPickerItem?
 
     var body: some View {
         NavigationStack {
@@ -34,6 +38,15 @@ struct HomeView: View {
                 .controlSize(.large)
                 .padding(.horizontal)
 
+                PhotosPicker(selection: $pickerItem, matching: .images, photoLibrary: .shared()) {
+                    Label("Open from gallery", systemImage: "photo.on.rectangle")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .padding(.horizontal)
+
                 NavigationLink {
                     SavedSentencesView()
                 } label: {
@@ -47,7 +60,22 @@ struct HomeView: View {
 
                 Spacer().frame(height: 16)
             }
-            .navigationBarHidden(true)
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
+                }
+            }
+            .sheet(isPresented: $showSettings) {
+                NavigationStack {
+                    SettingsView()
+                }
+            }
             .fullScreenCover(isPresented: $showCamera) {
                 CameraView { image in
                     handleCapture(image)
@@ -61,16 +89,38 @@ struct HomeView: View {
                     capturedPage = nil
                 }
             }
+            .onChange(of: pickerItem) { _, item in
+                guard let item else { return }
+                Task { await handleGalleryPick(item) }
+            }
         }
     }
 
     private func handleCapture(_ image: UIImage) {
         showCamera = false
+        ingest(image, alsoSaveToCameraRoll: settings.saveToCameraRoll)
+    }
+
+    private func handleGalleryPick(_ item: PhotosPickerItem) async {
+        defer { pickerItem = nil }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            print("PhotosPicker: couldn't load selected image")
+            return
+        }
+        // Photo already lives in the gallery — never re-save it back.
+        ingest(image, alsoSaveToCameraRoll: false)
+    }
+
+    private func ingest(_ image: UIImage, alsoSaveToCameraRoll: Bool) {
         do {
             let path = try PhotoStore.write(image)
             let page = CapturedPage(photoRelativePath: path)
             modelContext.insert(page)
             try modelContext.save()
+            if alsoSaveToCameraRoll {
+                PhotoStore.saveToCameraRoll(image)
+            }
             capturedPage = page
         } catch {
             print("PhotoStore write failed: \(error)")

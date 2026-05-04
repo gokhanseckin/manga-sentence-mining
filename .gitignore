@@ -19,11 +19,6 @@ Package.resolved
 # CocoaPods (unused, but reserved)
 Pods/
 
-# Bundled OCR weights + tokenizer — fetch via scripts/fetch-model.sh (~440MB total)
-MangaMining/Resources/*.onnx
-MangaMining/Resources/*.txt
-MangaMining/Resources/*.json
-
 # macOS
 .DS_Store
 

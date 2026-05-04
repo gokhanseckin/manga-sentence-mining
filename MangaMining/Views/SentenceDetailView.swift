@@ -7,17 +7,44 @@ struct SentenceDetailView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isEditing = false
-    @State private var draft: String = ""
+    @State private var draftText: String = ""
+    @State private var draftReading: String = ""
+    @State private var draftTranslation: String = ""
     @State private var showDeleteConfirm = false
 
     var body: some View {
         Form {
-            Section("Sentence") {
+            Section("Original (日本語)") {
                 if isEditing {
-                    TextField("Sentence", text: $draft, axis: .vertical)
+                    TextField("Original", text: $draftText, axis: .vertical)
                         .lineLimit(2...10)
                 } else {
                     Text(sentence.text)
+                        .font(.title3)
+                        .textSelection(.enabled)
+                }
+            }
+
+            Section("Reading (ひらがな)") {
+                if isEditing {
+                    TextField("Reading", text: $draftReading, axis: .vertical)
+                        .lineLimit(2...10)
+                } else {
+                    Text(sentence.reading ?? "—")
+                        .font(.body)
+                        .foregroundStyle(sentence.reading == nil ? .tertiary : .secondary)
+                        .textSelection(.enabled)
+                }
+            }
+
+            Section("Translation (Türkçe)") {
+                if isEditing {
+                    TextField("Translation", text: $draftTranslation, axis: .vertical)
+                        .lineLimit(2...10)
+                } else {
+                    Text(sentence.translationTr ?? "—")
+                        .font(.body)
+                        .foregroundStyle(sentence.translationTr == nil ? .tertiary : .primary)
                         .textSelection(.enabled)
                 }
             }
@@ -42,16 +69,20 @@ struct SentenceDetailView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {
                     Button("Done") {
-                        let trimmed = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !trimmed.isEmpty {
-                            sentence.text = trimmed
+                        let trimmedText = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !trimmedText.isEmpty {
+                            sentence.text = trimmedText
+                            sentence.reading = draftReading.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
+                            sentence.translationTr = draftTranslation.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
                             try? modelContext.save()
                         }
                         isEditing = false
                     }
                 } else {
                     Button("Edit") {
-                        draft = sentence.text
+                        draftText = sentence.text
+                        draftReading = sentence.reading ?? ""
+                        draftTranslation = sentence.translationTr ?? ""
                         isEditing = true
                     }
                 }
@@ -70,4 +101,8 @@ struct SentenceDetailView: View {
             Button("Cancel", role: .cancel) {}
         }
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
