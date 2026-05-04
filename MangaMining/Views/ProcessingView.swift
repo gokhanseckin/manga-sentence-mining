@@ -63,28 +63,38 @@ struct ProcessingView: View {
             Image(systemName: needsApiKey ? "key" : "exclamationmark.triangle")
                 .font(.largeTitle)
                 .foregroundStyle(needsApiKey ? .blue : .orange)
-            Text(errorMessage ?? "No text found.")
-                .font(.headline)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            if needsApiKey {
-                Button("Open Settings") {
-                    showSettings = true
-                }
-                .buttonStyle(.borderedProminent)
+            ScrollView {
+                Text(errorMessage ?? "No text found.")
+                    .font(.headline)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
             }
+            .frame(maxHeight: 220)
+
             if needsApiKey {
+                Button("Open Settings") { showSettings = true }
+                    .buttonStyle(.borderedProminent)
                 Button("Back") { onDone() }
                     .buttonStyle(.bordered)
             } else {
+                Button {
+                    Task { await runPipeline() }
+                } label: {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.borderedProminent)
                 Button("Back") { onDone() }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.bordered)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 
     private func runPipeline() async {
+        phase = .running
+        errorMessage = nil
+        needsApiKey = false
         guard let image = PhotoStore.loadImage(relativePath: page.photoRelativePath) else {
             errorMessage = "Couldn't load captured photo from disk."
             phase = .failure
