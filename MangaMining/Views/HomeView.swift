@@ -12,6 +12,12 @@ struct HomeView: View {
     @State private var showReview = false
     @State private var capturedPage: CapturedPage?
     @State private var pickerItem: PhotosPickerItem?
+    @State private var previewImage: PreviewImage?
+
+    private struct PreviewImage: Identifiable {
+        let id = UUID()
+        let image: UIImage
+    }
 
     private var dueCount: Int {
         let now = Date.now
@@ -130,6 +136,20 @@ struct HomeView: View {
                 }
                 .ignoresSafeArea()
             }
+            .fullScreenCover(item: $previewImage) { wrapper in
+                CapturePreviewView(
+                    image: wrapper.image,
+                    onMine: {
+                        previewImage = nil
+                        ingest(wrapper.image, alsoSaveToCameraRoll: settings.saveToCameraRoll)
+                    },
+                    onRetake: {
+                        previewImage = nil
+                        showCamera = true
+                    }
+                )
+                .ignoresSafeArea()
+            }
             .navigationDestination(item: $capturedPage) { page in
                 ProcessingView(page: page) {
                     capturedPage = nil
@@ -144,7 +164,7 @@ struct HomeView: View {
 
     private func handleCapture(_ image: UIImage) {
         showCamera = false
-        ingest(image, alsoSaveToCameraRoll: settings.saveToCameraRoll)
+        previewImage = PreviewImage(image: image)
     }
 
     private func handleGalleryPick(_ item: PhotosPickerItem) async {
