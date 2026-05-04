@@ -26,6 +26,21 @@ struct SettingsView: View {
             }
 
             Section {
+                Stepper(
+                    "Session size: \(settings.sessionSize)",
+                    value: $settings.sessionSize,
+                    in: SettingsStore.minSessionSize...SettingsStore.maxSessionSize
+                )
+                LabeledNumberField(label: "Initial α", value: $settings.ebisuDefaultAlpha)
+                LabeledNumberField(label: "Initial β", value: $settings.ebisuDefaultBeta)
+                LabeledNumberField(label: "Initial t (hours)", value: $settings.ebisuDefaultTHours)
+            } header: {
+                Text("Review")
+            } footer: {
+                Text("Ebisu priors apply to newly picked clozes only. Existing scheduled questions keep their current state.")
+            }
+
+            Section {
                 SecureField("\(settings.providerKind.displayName) key", text: $apiKeyDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
@@ -72,6 +87,22 @@ struct SettingsView: View {
         }
         .onChange(of: settings.providerKind) { _, newKind in
             apiKeyDraft = settings.apiKey(for: newKind)
+        }
+    }
+}
+
+private struct LabeledNumberField: View {
+    let label: String
+    @Binding var value: Double
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            TextField(label, value: $value, format: .number.precision(.fractionLength(0...3)))
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 100)
         }
     }
 }
