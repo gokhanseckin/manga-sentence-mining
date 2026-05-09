@@ -25,10 +25,28 @@ struct GeminiFlashProvider: OCRProvider {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: Self.body(jpegBase64: jpeg.base64EncodedString()))
 
-        let (data, response) = try await session.data(for: request)
-        if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-            let snippet = String(data: data, encoding: .utf8)?.prefix(500) ?? ""
-            throw OCRPipelineError.providerError(GeminiError.httpStatus(http.statusCode, String(snippet)))
+        // Auto-retry transient server errors (Gemini occasionally returns 503
+        // UNAVAILABLE / 429 / 5xx during demand spikes) with exponential
+        // backoff before bubbling the failure to the UI.
+        let transientStatuses: Set<Int> = [429, 500, 502, 503, 504]
+        let maxAttempts = 4
+        let backoffsSeconds: [UInt64] = [1, 3, 7] // between attempts 1→2, 2→3, 3→4
+
+        var data: Data = Data()
+        var response: URLResponse?
+        for attempt in 1...maxAttempts {
+            (data, response) = try await session.data(for: request)
+            if let http = response as? HTTPURLResponse {
+                if (200..<300).contains(http.statusCode) { break }
+                if transientStatuses.contains(http.statusCode), attempt < maxAttempts {
+                    let nanos = backoffsSeconds[attempt - 1] * 1_000_000_000
+                    try? await Task.sleep(nanoseconds: nanos)
+                    continue
+                }
+                let snippet = String(data: data, encoding: .utf8)?.prefix(500) ?? ""
+                throw OCRPipelineError.providerError(GeminiError.httpStatus(http.statusCode, String(snippet)))
+            }
+            break
         }
 
         let envelope = try JSONDecoder().decode(GeminiEnvelope.self, from: data)
