@@ -124,6 +124,7 @@ struct ProcessingView: View {
     }
 
     private func save(_ picked: [SentenceCandidate]) {
+        var inserted: [Sentence] = []
         for candidate in picked {
             let sentence = Sentence(
                 text: candidate.text,
@@ -132,7 +133,9 @@ struct ProcessingView: View {
                 capturedPage: page
             )
             modelContext.insert(sentence)
+            inserted.append(sentence)
         }
         try? modelContext.save()
+        Task { await SentenceAutoLinker.autoLink(sentences: inserted, in: modelContext) }
     }
 }

@@ -5,8 +5,8 @@ import SwiftUI
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(SettingsStore.self) private var settings
-    @Query(filter: #Predicate<ClozeQuestion> { !$0.isKnown }, sort: \ClozeQuestion.nextReviewAt)
-    private var activeQuestions: [ClozeQuestion]
+    @Query(filter: #Predicate<WordCard> { !$0.isKnown }, sort: \WordCard.nextReviewAt)
+    private var activeCards: [WordCard]
     @State private var showCamera = false
     @State private var showSettings = false
     @State private var showReview = false
@@ -21,7 +21,7 @@ struct HomeView: View {
 
     private var dueCount: Int {
         let now = Date.now
-        return activeQuestions.prefix { $0.nextReviewAt <= now }.count
+        return activeCards.prefix { $0.nextReviewAt <= now }.count
     }
 
     private var captureLabel: some View {
@@ -59,7 +59,7 @@ struct HomeView: View {
                     .buttonStyle(.borderedProminent)
                     .controlSize(.large)
                     .padding(.horizontal)
-                } else if !activeQuestions.isEmpty {
+                } else if !activeCards.isEmpty {
                     Text("All caught up — mine more sentences")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -100,6 +100,17 @@ struct HomeView: View {
                     SavedSentencesView()
                 } label: {
                     Label("Saved sentences", systemImage: "list.bullet.rectangle")
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .padding(.horizontal)
+
+                NavigationLink {
+                    ClozedWordsListView()
+                } label: {
+                    Label("Clozed words (\(activeCards.count))", systemImage: "character.book.closed")
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
                 }

@@ -6,19 +6,19 @@ struct ReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(SettingsStore.self) private var settings
 
-    let drillQuestions: [ClozeQuestion]?
+    let drillCards: [WordCard]?
 
     @State private var session: ReviewSession?
 
-    init(drillQuestions: [ClozeQuestion]? = nil) {
-        self.drillQuestions = drillQuestions
+    init(drillCards: [WordCard]? = nil) {
+        self.drillCards = drillCards
     }
 
     var body: some View {
         NavigationStack {
             Group {
-                if let session, !session.isComplete, let question = session.currentQuestion {
-                    QuestionScreen(session: session, question: question)
+                if let session, !session.isComplete, let card = session.currentCard, let cloze = session.currentCloze {
+                    QuestionScreen(session: session, card: card, cloze: cloze)
                 } else if session?.totalUnique == 0 {
                     AllCaughtUp()
                 } else {
@@ -37,8 +37,8 @@ struct ReviewView: View {
         }
         .onAppear {
             if session == nil {
-                if let drillQuestions {
-                    session = ReviewSession(modelContext: modelContext, settings: settings, questions: drillQuestions)
+                if let drillCards {
+                    session = ReviewSession(modelContext: modelContext, settings: settings, cards: drillCards)
                 } else {
                     session = ReviewSession(modelContext: modelContext, settings: settings)
                 }
@@ -49,7 +49,8 @@ struct ReviewView: View {
 
 private struct QuestionScreen: View {
     @Bindable var session: ReviewSession
-    let question: ClozeQuestion
+    let card: WordCard
+    let cloze: Cloze
 
     var body: some View {
         VStack(spacing: 20) {
@@ -58,14 +59,14 @@ private struct QuestionScreen: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     SentenceDisplay(
-                        question: question,
+                        cloze: cloze,
                         tokens: session.sentenceTokensCache,
                         furiganaShown: session.furiganaShown,
                         feedback: feedbackState
                     )
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if let translation = question.cloze?.sentence?.translationTr,
+                    if let translation = cloze.sentence?.translationTr,
                        case .feedback = session.phase {
                         Text(translation)
                             .font(.callout)
@@ -97,7 +98,7 @@ private struct QuestionScreen: View {
                 .foregroundStyle(.secondary)
             Spacer()
             Toggle(isOn: Binding(
-                get: { question.isKnown },
+                get: { card.isKnown },
                 set: { session.setKnown($0) }
             )) {
                 Label("Known", systemImage: "checkmark.seal")
@@ -168,7 +169,7 @@ private struct QuestionScreen: View {
 private struct SentenceDisplay: View {
     enum Feedback { case blanked, revealed }
 
-    let question: ClozeQuestion
+    let cloze: Cloze
     let tokens: [JapaneseToken]
     let furiganaShown: Bool
     let feedback: Feedback
@@ -188,9 +189,7 @@ private struct SentenceDisplay: View {
     }
 
     private var renderable: [Renderable] {
-        guard let cloze = question.cloze else { return [] }
         guard !tokens.isEmpty else {
-            // Fallback: show sentence as a single chunk with the cloze blanked.
             let text = cloze.sentence?.text ?? ""
             switch feedback {
             case .blanked:
