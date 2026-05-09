@@ -103,7 +103,7 @@ struct SentenceDetailView: View {
                     } label: {
                         Label("Quiz these clozes", systemImage: "play.circle.fill")
                     }
-                    .disabled(drillQuestions.isEmpty)
+                    .disabled(drillCards.isEmpty)
                 }
             }
 
@@ -121,7 +121,7 @@ struct SentenceDetailView: View {
             ClozePickerView(sentence: sentence)
         }
         .sheet(isPresented: $showDrillReview) {
-            ReviewView(drillQuestions: drillQuestions)
+            ReviewView(drillCards: drillCards)
         }
         .fullScreenCover(isPresented: $showFullImage) {
             if let image = sourceImage {
@@ -167,10 +167,15 @@ struct SentenceDetailView: View {
 }
 
 private extension SentenceDetailView {
-    var drillQuestions: [ClozeQuestion] {
-        sentence.clozes
-            .flatMap(\.questions)
-            .filter { !$0.isKnown }
+    var drillCards: [WordCard] {
+        var seen: Set<UUID> = []
+        var result: [WordCard] = []
+        for cloze in sentence.clozes {
+            guard let card = cloze.wordCard, !card.isKnown, !seen.contains(card.id) else { continue }
+            seen.insert(card.id)
+            result.append(card)
+        }
+        return result
     }
 
     var sourceImage: UIImage? {

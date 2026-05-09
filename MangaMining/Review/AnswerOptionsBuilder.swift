@@ -24,15 +24,14 @@ enum AnswerOptionsBuilder {
         let descriptor = FetchDescriptor<Cloze>()
         let pool = (try? context.fetch(descriptor)) ?? []
 
-        // Dedupe by surface form, drop the target itself, drop empty surfaces.
-        var seen: Set<String> = [cloze.surfaceForm]
-        let candidates: [Cloze] = pool.compactMap { c in
-            guard c.lemma != cloze.lemma,
-                  !c.surfaceForm.isEmpty,
-                  !seen.contains(c.surfaceForm) else { return nil }
-            seen.insert(c.surfaceForm)
-            return c
+        // Dedupe by lemma so we never show two options for the same word, drop
+        // the target lemma itself and any empty surfaces. For each candidate
+        // lemma, pick a random surface form from its sentence instances.
+        var byLemma: [String: [Cloze]] = [:]
+        for c in pool where c.lemma != cloze.lemma && !c.surfaceForm.isEmpty {
+            byLemma[c.lemma, default: []].append(c)
         }
+        let candidates: [Cloze] = byLemma.values.compactMap { $0.randomElement() }
 
         let targetLen = cloze.surfaceForm.count
         let posMatched = candidates.filter { $0.partOfSpeech == cloze.partOfSpeech }

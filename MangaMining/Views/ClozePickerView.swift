@@ -121,6 +121,7 @@ struct ClozePickerView: View {
     }
 
     private func confirmSelection() {
+        var newCards: [WordCard] = []
         for idx in selectedTokenIDs.sorted() {
             let token = tokens[idx]
             let (start, end) = offsets(for: token)
@@ -134,9 +135,29 @@ struct ClozePickerView: View {
                 partOfSpeech: token.partOfSpeech
             )
             modelContext.insert(cloze)
-            SchedulingService.createInitialQuestion(for: cloze, in: modelContext, settings: settings)
+            // First-time clozes for a lemma will be auto-linked below across
+            // all existing sentences. Existing cards just attach normally.
+            let lemma = token.lemma
+            var probe = FetchDescriptor<WordCard>(predicate: #Predicate { $0.lemma == lemma })
+            probe.fetchLimit = 1
+            let isNew = ((try? modelContext.fetch(probe))?.isEmpty) ?? true
+            let card = SchedulingService.getOrCreateWordCard(
+                forLemma: token.lemma,
+                reading: token.reading,
+                partOfSpeech: token.partOfSpeech,
+                in: modelContext,
+                settings: settings
+            )
+            cloze.wordCard = card
+            if isNew { newCards.append(card) }
         }
         try? modelContext.save()
+        let cards = newCards
+        Task {
+            for card in cards {
+                await SentenceAutoLinker.autoLink(card: card, in: modelContext)
+            }
+        }
         dismiss()
     }
 }
