@@ -8,6 +8,7 @@ struct ProcessingView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(SettingsStore.self) private var settings
+    @Environment(LocalizationStore.self) private var loc
     @State private var phase: Phase = .running
     @State private var candidates: [SentenceCandidate] = []
     @State private var errorMessage: String?
@@ -51,7 +52,7 @@ struct ProcessingView: View {
         VStack(spacing: 16) {
             ProgressView()
                 .scaleEffect(1.5)
-            Text("Reading the page…")
+            Text(loc.t("processing.readingPage"))
                 .font(.callout)
                 .foregroundStyle(.secondary)
         }

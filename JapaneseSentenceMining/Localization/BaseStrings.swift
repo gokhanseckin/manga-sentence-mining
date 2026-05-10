@@ -60,6 +60,9 @@ enum BaseStrings {
         Entry(key: "onboarding.apiKey.privacy", value: "Pages you scan are sent to Google Gemini for OCR and translation. Images are not retained by Google per their API terms.", comment: "Privacy disclosure shown on the API key onboarding screen."),
         Entry(key: "onboarding.apiKey.continue", value: "Save and continue", comment: "Button to save the API key and finish onboarding."),
 
+        // Processing (OCR pipeline)
+        Entry(key: "processing.readingPage", value: "Reading the page…", comment: "Status shown with a spinner while the app OCRs and translates a captured page."),
+
         // Translation in progress
         Entry(key: "translation.inProgress.title", value: "Translating interface…", comment: "Title shown while the app translates its interface to a non-bundled language at onboarding."),
         Entry(key: "translation.inProgress.body", value: "This usually takes a few seconds.", comment: "Body shown below the translation-in-progress title."),
