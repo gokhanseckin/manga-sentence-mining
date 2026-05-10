@@ -6,9 +6,6 @@ enum SentryBootstrap {
         guard let dsn = Bundle.main.object(forInfoDictionaryKey: "SentryDSN") as? String,
               !dsn.isEmpty,
               !dsn.hasPrefix("$(") else {
-            #if DEBUG
-            print("Sentry: SentryDSN missing in Info.plist; skipping init.")
-            #endif
             return
         }
 
@@ -16,17 +13,19 @@ enum SentryBootstrap {
             options.dsn = dsn
             options.releaseName = Self.releaseName()
             options.environment = Self.environment()
-            options.tracesSampleRate = 0.2
-            options.profilesSampleRate = 0.2
+
+            // Crash reports + sessions only. Auto-performance/profiling/hang
+            // tracking and async-stacktrace instrumentation each add main-thread
+            // work in App.init(); on cold first-install they pushed launch to
+            // 5–8s. Re-enable individually if a specific signal becomes useful.
+            options.tracesSampleRate = 0
+            options.profilesSampleRate = 0
+            options.enableAutoPerformanceTracing = false
+            options.enableAppHangTracking = false
+            options.swiftAsyncStacktraces = false
             options.attachScreenshot = false
             options.attachViewHierarchy = false
-            options.enableAppHangTracking = true
-            options.enableAutoPerformanceTracing = true
-            options.swiftAsyncStacktraces = true
-            #if DEBUG
-            options.debug = true
-            options.environment = "debug"
-            #endif
+            options.debug = false
         }
     }
 
