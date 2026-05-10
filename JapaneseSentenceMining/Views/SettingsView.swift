@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var settings
     @Environment(\.dismiss) private var dismiss
+    @Environment(LocalizationStore.self) private var loc
 
     @State private var apiKeyDraft: String = ""
     @State private var savedFlash = false
@@ -10,8 +11,8 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var settings = settings
         Form {
-            Section("OCR provider") {
-                Picker("Provider", selection: $settings.providerKind) {
+            Section(loc.t("settings.section.ocrProvider")) {
+                Picker(loc.t("settings.providerPicker"), selection: $settings.providerKind) {
                     ForEach(OCRProviderKind.allCases) { kind in
                         Text(kind.displayName).tag(kind)
                     }
@@ -20,28 +21,28 @@ struct SettingsView: View {
             }
 
             Section {
-                Toggle("Save photos to camera roll", isOn: $settings.saveToCameraRoll)
+                Toggle(loc.t("settings.saveToCameraRoll"), isOn: $settings.saveToCameraRoll)
             } footer: {
-                Text("When enabled, captured pages are also saved to your iOS Photos library.")
+                Text(loc.t("settings.saveToCameraRoll.footer"))
             }
 
             Section {
                 Stepper(
-                    "Session size: \(settings.sessionSize)",
+                    loc.t("settings.sessionSize.label", String(settings.sessionSize)),
                     value: $settings.sessionSize,
                     in: SettingsStore.minSessionSize...SettingsStore.maxSessionSize
                 )
-                LabeledNumberField(label: "Initial α", value: $settings.ebisuDefaultAlpha)
-                LabeledNumberField(label: "Initial β", value: $settings.ebisuDefaultBeta)
-                LabeledNumberField(label: "Initial t (hours)", value: $settings.ebisuDefaultTHours)
+                LabeledNumberField(label: loc.t("settings.review.alpha"), value: $settings.ebisuDefaultAlpha)
+                LabeledNumberField(label: loc.t("settings.review.beta"), value: $settings.ebisuDefaultBeta)
+                LabeledNumberField(label: loc.t("settings.review.tHours"), value: $settings.ebisuDefaultTHours)
             } header: {
-                Text("Review")
+                Text(loc.t("settings.section.review"))
             } footer: {
-                Text("Ebisu priors apply to newly picked clozes only. Existing scheduled questions keep their current state.")
+                Text(loc.t("settings.review.footer"))
             }
 
             Section {
-                SecureField("\(settings.providerKind.displayName) key", text: $apiKeyDraft)
+                SecureField(loc.t("settings.apiKey.field.placeholder", settings.providerKind.displayName), text: $apiKeyDraft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Button {
@@ -53,7 +54,7 @@ struct SettingsView: View {
                     }
                 } label: {
                     HStack {
-                        Text(savedFlash ? "Saved" : "Save key")
+                        Text(savedFlash ? loc.t("settings.apiKey.saved") : loc.t("settings.apiKey.save"))
                         if savedFlash {
                             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                         }
@@ -66,20 +67,20 @@ struct SettingsView: View {
                         settings.setApiKey("", for: settings.providerKind)
                         apiKeyDraft = ""
                     } label: {
-                        Label("Remove saved key", systemImage: "trash")
+                        Label(loc.t("settings.apiKey.remove"), systemImage: "trash")
                     }
                 }
             } header: {
-                Text("API key")
+                Text(loc.t("settings.section.apiKey"))
             } footer: {
-                Text("Keys are stored in the iOS Keychain on this device only.")
+                Text(loc.t("settings.apiKey.footer"))
             }
         }
-        .navigationTitle("Settings")
+        .navigationTitle(loc.t("settings.title"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Done") { dismiss() }
+                Button(loc.t("common.done")) { dismiss() }
             }
         }
         .onAppear {

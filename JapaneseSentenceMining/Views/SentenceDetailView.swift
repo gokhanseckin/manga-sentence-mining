@@ -5,6 +5,7 @@ struct SentenceDetailView: View {
     @Bindable var sentence: Sentence
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(LocalizationStore.self) private var loc
 
     @State private var isEditing = false
     @State private var draftText: String = ""
@@ -18,9 +19,9 @@ struct SentenceDetailView: View {
 
     var body: some View {
         Form {
-            Section("Original (日本語)") {
+            Section(loc.t("sentenceDetail.section.original")) {
                 if isEditing {
-                    TextField("Original", text: $draftText, axis: .vertical)
+                    TextField(loc.t("sentenceDetail.field.original.placeholder"), text: $draftText, axis: .vertical)
                         .lineLimit(2...10)
                 } else {
                     JapaneseText(text: sentence.text, showFurigana: $showFurigana, font: .title3)
@@ -28,9 +29,9 @@ struct SentenceDetailView: View {
                 }
             }
 
-            Section("Reading (ひらがな)") {
+            Section(loc.t("sentenceDetail.section.reading")) {
                 if isEditing {
-                    TextField("Reading", text: $draftReading, axis: .vertical)
+                    TextField(loc.t("sentenceDetail.field.reading.placeholder"), text: $draftReading, axis: .vertical)
                         .lineLimit(2...10)
                 } else {
                     Text(sentence.reading ?? "—")
@@ -42,7 +43,7 @@ struct SentenceDetailView: View {
 
             Section(translationSectionTitle) {
                 if isEditing {
-                    TextField("Translation", text: $draftTranslation, axis: .vertical)
+                    TextField(loc.t("sentenceDetail.field.translation.placeholder"), text: $draftTranslation, axis: .vertical)
                         .lineLimit(2...10)
                 } else {
                     Text(sentence.translation ?? "—")
@@ -52,7 +53,7 @@ struct SentenceDetailView: View {
                 }
             }
 
-            Section("Captured") {
+            Section(loc.t("sentenceDetail.section.captured")) {
                 Text(sentence.createdAt.formatted(date: .long, time: .shortened))
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -75,25 +76,25 @@ struct SentenceDetailView: View {
                     showClozePicker = true
                 } label: {
                     Label(
-                        sentence.hasClozes ? "Pick more clozes" : "Pick clozes",
+                        sentence.hasClozes ? loc.t("sentenceDetail.pickMoreClozes") : loc.t("sentenceDetail.pickClozes"),
                         systemImage: "highlighter"
                     )
                 }
                 .disabled(isEditing)
             } header: {
-                Text("Clozes")
+                Text(loc.t("sentenceDetail.section.clozes"))
             } footer: {
                 if sentence.hasClozes {
-                    Text("Editing the sentence is locked while clozes exist.")
+                    Text(loc.t("sentenceDetail.clozes.editLocked"))
                 }
             }
 
             if !sentence.clozes.isEmpty {
-                Section("Picked words (\(sentence.clozes.count))") {
+                Section(loc.t("sentenceDetail.section.pickedWords", String(sentence.clozes.count))) {
                     ForEach(sentence.clozes.sorted(by: { $0.startOffset < $1.startOffset })) { cloze in
                         VStack(alignment: .leading, spacing: 2) {
                             Text(cloze.surfaceForm).font(.body)
-                            Text("\(cloze.lemma) · \(cloze.reading) · \(cloze.partOfSpeech)")
+                            Text(loc.t("sentenceDetail.clozeMeta", cloze.lemma, cloze.reading, cloze.partOfSpeech))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -101,7 +102,7 @@ struct SentenceDetailView: View {
                     Button {
                         showDrillReview = true
                     } label: {
-                        Label("Quiz these clozes", systemImage: "play.circle.fill")
+                        Label(loc.t("sentenceDetail.quizClozes"), systemImage: "play.circle.fill")
                     }
                     .disabled(drillCards.isEmpty)
                 }
@@ -111,11 +112,11 @@ struct SentenceDetailView: View {
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
-                    Label("Delete sentence", systemImage: "trash")
+                    Label(loc.t("sentenceDetail.delete"), systemImage: "trash")
                 }
             }
         }
-        .navigationTitle("Sentence")
+        .navigationTitle(loc.t("sentenceDetail.title"))
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showClozePicker) {
             ClozePickerView(sentence: sentence)
@@ -134,7 +135,7 @@ struct SentenceDetailView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {
-                    Button("Done") {
+                    Button(loc.t("common.done")) {
                         let trimmedText = draftText.trimmingCharacters(in: .whitespacesAndNewlines)
                         if !trimmedText.isEmpty {
                             sentence.text = trimmedText
@@ -145,7 +146,7 @@ struct SentenceDetailView: View {
                         isEditing = false
                     }
                 } else if !sentence.hasClozes {
-                    Button("Edit") {
+                    Button(loc.t("common.edit")) {
                         draftText = sentence.text
                         draftReading = sentence.reading ?? ""
                         draftTranslation = sentence.translation ?? ""
@@ -155,16 +156,16 @@ struct SentenceDetailView: View {
             }
         }
         .confirmationDialog(
-            "Delete this sentence?",
+            loc.t("sentenceDetail.deleteConfirm.title"),
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
-            Button("Delete", role: .destructive) {
+            Button(loc.t("common.delete"), role: .destructive) {
                 modelContext.delete(sentence)
                 try? modelContext.save()
                 dismiss()
             }
-            Button("Cancel", role: .cancel) {}
+            Button(loc.t("common.cancel"), role: .cancel) {}
         }
     }
 }
@@ -174,9 +175,9 @@ private extension SentenceDetailView {
         let code = sentence.translationLanguage
         let englishLocale = Locale(identifier: "en")
         if let name = englishLocale.localizedString(forIdentifier: code), !name.isEmpty {
-            return "Translation (\(name))"
+            return loc.t("sentenceDetail.section.translationNamed", name)
         }
-        return "Translation"
+        return loc.t("sentenceDetail.section.translationGeneric")
     }
 
     var drillCards: [WordCard] {

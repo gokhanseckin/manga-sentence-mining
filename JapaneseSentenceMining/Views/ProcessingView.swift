@@ -65,7 +65,7 @@ struct ProcessingView: View {
                 .font(.largeTitle)
                 .foregroundStyle(needsApiKey ? .blue : .orange)
             ScrollView {
-                Text(errorMessage ?? "No text found.")
+                Text(errorMessage ?? loc.t("processing.error.noTextDefault"))
                     .font(.headline)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
@@ -73,18 +73,18 @@ struct ProcessingView: View {
             .frame(maxHeight: 220)
 
             if needsApiKey {
-                Button("Open Settings") { showSettings = true }
+                Button(loc.t("processing.openSettings")) { showSettings = true }
                     .buttonStyle(.borderedProminent)
-                Button("Back") { onDone() }
+                Button(loc.t("common.back")) { onDone() }
                     .buttonStyle(.bordered)
             } else {
                 Button {
                     Task { await runPipeline() }
                 } label: {
-                    Label("Retry", systemImage: "arrow.clockwise")
+                    Label(loc.t("common.retry"), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.borderedProminent)
-                Button("Back") { onDone() }
+                Button(loc.t("common.back")) { onDone() }
                     .buttonStyle(.bordered)
             }
         }
@@ -97,7 +97,7 @@ struct ProcessingView: View {
         errorMessage = nil
         needsApiKey = false
         guard let image = PhotoStore.loadImage(relativePath: page.photoRelativePath) else {
-            errorMessage = "Couldn't load captured photo from disk."
+            errorMessage = loc.t("processing.error.loadPhoto")
             phase = .failure
             return
         }
@@ -108,7 +108,7 @@ struct ProcessingView: View {
             page.modifiedAt = .now
             try? modelContext.save()
             if result.sentences.isEmpty {
-                errorMessage = "No text found. Try re-shooting."
+                errorMessage = loc.t("processing.error.noText")
                 phase = .failure
             } else {
                 candidates = result.sentences
@@ -116,13 +116,13 @@ struct ProcessingView: View {
             }
         } catch OCRPipelineError.apiKeyMissing {
             needsApiKey = true
-            errorMessage = "Add your Gemini API key in Settings to recognize text."
+            errorMessage = loc.t("error.apiKey.missing")
             phase = .failure
         } catch OCRPipelineError.noImageData {
-            errorMessage = "Couldn't read the image."
+            errorMessage = loc.t("processing.error.readImage")
             phase = .failure
         } catch {
-            errorMessage = "OCR failed: \(error.localizedDescription)"
+            errorMessage = loc.t("processing.error.ocrFailed", error.localizedDescription)
             phase = .failure
         }
     }
