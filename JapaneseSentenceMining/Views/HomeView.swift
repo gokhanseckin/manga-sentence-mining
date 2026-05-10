@@ -14,9 +14,17 @@ struct HomeView: View {
     @State private var capturedPage: CapturedPage?
     @State private var pickerItem: PhotosPickerItem?
     @State private var previewImage: PreviewImage?
-    @State private var isPreparingGallery = false
+    @State private var galleryFlow: GalleryFlow?
     @State private var savedToastCount: Int = 0
     @State private var showSavedToast = false
+
+    private enum GalleryFlow: Identifiable {
+        case loading
+        case processing(CapturedPage)
+        // Constant id keeps the same cover presented while content swaps,
+        // avoiding a dismiss+represent animation between loader and ProcessingView.
+        var id: String { "gallery-flow" }
+    }
 
     private struct PreviewImage: Identifiable {
         let id = UUID()
@@ -169,12 +177,7 @@ struct HomeView: View {
                 ProcessingView(page: page) { savedCount in
                     capturedPage = nil
                     if savedCount > 0 {
-                        savedToastCount = savedCount
-                        showSavedToast = true
-                        Task {
-                            try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            withAnimation { showSavedToast = false }
-                        }
+                        triggerSavedToast(count: savedCount)
                     }
                 }
             }
@@ -197,17 +200,29 @@ struct HomeView: View {
             }
             .onChange(of: pickerItem) { _, item in
                 guard let item else { return }
-                isPreparingGallery = true
+                galleryFlow = .loading
                 Task { await handleGalleryPick(item) }
             }
-            .fullScreenCover(isPresented: $isPreparingGallery) {
-                ZStack {
-                    Color(.systemBackground).ignoresSafeArea()
-                    VStack(spacing: 16) {
-                        ProgressView().scaleEffect(1.5)
-                        Text(loc.t("processing.readingPage"))
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
+            .fullScreenCover(item: $galleryFlow) { flow in
+                switch flow {
+                case .loading:
+                    ZStack {
+                        Color(.systemBackground).ignoresSafeArea()
+                        VStack(spacing: 16) {
+                            ProgressView().scaleEffect(1.5)
+                            Text(loc.t("processing.readingPage"))
+                                .font(.callout)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                case .processing(let page):
+                    NavigationStack {
+                        ProcessingView(page: page) { savedCount in
+                            galleryFlow = nil
+                            if savedCount > 0 {
+                                triggerSavedToast(count: savedCount)
+                            }
+                        }
                     }
                 }
             }
@@ -220,20 +235,27 @@ struct HomeView: View {
     }
 
     private func handleGalleryPick(_ item: PhotosPickerItem) async {
-        defer {
-            pickerItem = nil
-            isPreparingGallery = false
-        }
+        defer { pickerItem = nil }
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
             print("PhotosPicker: couldn't load selected image")
+            galleryFlow = nil
             return
         }
         // Photo already lives in the gallery — never re-save it back.
-        ingest(image, alsoSaveToCameraRoll: false)
+        guard let page = makePage(from: image, alsoSaveToCameraRoll: false) else {
+            galleryFlow = nil
+            return
+        }
+        galleryFlow = .processing(page)
     }
 
     private func ingest(_ image: UIImage, alsoSaveToCameraRoll: Bool) {
+        guard let page = makePage(from: image, alsoSaveToCameraRoll: alsoSaveToCameraRoll) else { return }
+        capturedPage = page
+    }
+
+    private func makePage(from image: UIImage, alsoSaveToCameraRoll: Bool) -> CapturedPage? {
         do {
             let path = try PhotoStore.write(image)
             let page = CapturedPage(photoRelativePath: path)
@@ -242,9 +264,19 @@ struct HomeView: View {
             if alsoSaveToCameraRoll {
                 PhotoStore.saveToCameraRoll(image)
             }
-            capturedPage = page
+            return page
         } catch {
             print("PhotoStore write failed: \(error)")
+            return nil
+        }
+    }
+
+    private func triggerSavedToast(count: Int) {
+        savedToastCount = count
+        showSavedToast = true
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            withAnimation { showSavedToast = false }
         }
     }
 }
