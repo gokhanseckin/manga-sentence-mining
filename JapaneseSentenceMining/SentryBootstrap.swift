@@ -19,7 +19,6 @@ enum SentryBootstrap {
             // work in App.init(); on cold first-install they pushed launch to
             // 5–8s. Re-enable individually if a specific signal becomes useful.
             options.tracesSampleRate = 0
-            options.profilesSampleRate = 0
             options.enableAutoPerformanceTracing = false
             options.enableAppHangTracking = false
             options.swiftAsyncStacktraces = false
