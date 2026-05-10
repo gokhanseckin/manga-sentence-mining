@@ -44,6 +44,44 @@ struct HomeView: View {
     }
 
     var body: some View {
+        ZStack {
+            navigationContent
+            if let flow = galleryFlow {
+                galleryOverlay(flow)
+                    .ignoresSafeArea()
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+        }
+        .animation(.easeInOut(duration: 0.15), value: galleryFlow?.id)
+    }
+
+    @ViewBuilder
+    private func galleryOverlay(_ flow: GalleryFlow) -> some View {
+        switch flow {
+        case .loading:
+            ZStack {
+                Color(.systemBackground).ignoresSafeArea()
+                VStack(spacing: 16) {
+                    ProgressView().scaleEffect(1.5)
+                    Text(loc.t("processing.readingPage"))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        case .processing(let page):
+            NavigationStack {
+                ProcessingView(page: page) { savedCount in
+                    galleryFlow = nil
+                    if savedCount > 0 {
+                        triggerSavedToast(count: savedCount)
+                    }
+                }
+            }
+        }
+    }
+
+    private var navigationContent: some View {
         NavigationStack {
             VStack(spacing: 24) {
                 Spacer()
@@ -202,29 +240,6 @@ struct HomeView: View {
                 guard let item else { return }
                 galleryFlow = .loading
                 Task { await handleGalleryPick(item) }
-            }
-            .fullScreenCover(item: $galleryFlow) { flow in
-                switch flow {
-                case .loading:
-                    ZStack {
-                        Color(.systemBackground).ignoresSafeArea()
-                        VStack(spacing: 16) {
-                            ProgressView().scaleEffect(1.5)
-                            Text(loc.t("processing.readingPage"))
-                                .font(.callout)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                case .processing(let page):
-                    NavigationStack {
-                        ProcessingView(page: page) { savedCount in
-                            galleryFlow = nil
-                            if savedCount > 0 {
-                                triggerSavedToast(count: savedCount)
-                            }
-                        }
-                    }
-                }
             }
         }
     }
