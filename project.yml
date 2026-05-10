@@ -1,4 +1,4 @@
-name: MangaMining
+name: JapaneseSentenceMining
 options:
   bundleIdPrefix: com.gokhanseckin
   deploymentTarget:
@@ -17,32 +17,39 @@ packages:
     url: https://github.com/shinjukunian/Mecab-Swift
     revision: 1f096492e37fc05fc2e7304091f54889974c5368
 targets:
-  MangaMining:
+  JapaneseSentenceMining:
     type: application
     platform: iOS
     sources:
-      - path: MangaMining
+      - path: JapaneseSentenceMining
     dependencies:
       - package: Mecab-Swift
         product: Mecab-Swift
       - package: Mecab-Swift
         product: IPADic
-    info:
-      path: MangaMining/Info.plist
+    entitlements:
+      path: JapaneseSentenceMining/JapaneseSentenceMining.entitlements
       properties:
-        CFBundleDisplayName: Manga Mining
-        CFBundleShortVersionString: "0.2.0"
+        com.apple.developer.icloud-container-identifiers:
+          - iCloud.com.gokhanseckin.universalsentencemining
+        com.apple.developer.icloud-services:
+          - CloudKit
+    info:
+      path: JapaneseSentenceMining/Info.plist
+      properties:
+        CFBundleDisplayName: Japanese Sentence Mining
+        CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: "1"
         UILaunchScreen:
           UIColorName: ""
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        NSCameraUsageDescription: Manga Mining needs camera access to capture printed manga pages and OCR the text.
-        NSPhotoLibraryAddUsageDescription: Manga Mining can save captured pages to your Photos library when the camera-roll setting is on.
-        NSPhotoLibraryUsageDescription: Manga Mining lets you pick existing manga photos from your Photos library to OCR.
+        NSCameraUsageDescription: Japanese Sentence Mining needs camera access to capture printed Japanese pages and OCR the text.
+        NSPhotoLibraryAddUsageDescription: Japanese Sentence Mining can save captured pages to your Photos library when the camera-roll setting is on.
+        NSPhotoLibraryUsageDescription: Japanese Sentence Mining lets you pick existing photos from your Photos library to OCR.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.gokhanseckin.mangamining
+        PRODUCT_BUNDLE_IDENTIFIER: com.gokhanseckin.universalsentencemining
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
         GENERATE_INFOPLIST_FILE: NO
