@@ -4,7 +4,7 @@ import UIKit
 
 struct ProcessingView: View {
     let page: CapturedPage
-    var onDone: () -> Void
+    var onDone: (_ savedCount: Int) -> Void
 
     @Environment(\.modelContext) private var modelContext
     @Environment(SettingsStore.self) private var settings
@@ -29,9 +29,9 @@ struct ProcessingView: View {
             case .success:
                 CandidatePickerView(candidates: candidates) { picked in
                     save(picked)
-                    onDone()
+                    onDone(picked.count)
                 } onCancel: {
-                    onDone()
+                    onDone(0)
                 }
             case .failure:
                 failureView
@@ -75,7 +75,7 @@ struct ProcessingView: View {
             if needsApiKey {
                 Button(loc.t("processing.openSettings")) { showSettings = true }
                     .buttonStyle(.borderedProminent)
-                Button(loc.t("common.back")) { onDone() }
+                Button(loc.t("common.back")) { onDone(0) }
                     .buttonStyle(.bordered)
             } else {
                 Button {
@@ -84,7 +84,7 @@ struct ProcessingView: View {
                     Label(loc.t("common.retry"), systemImage: "arrow.clockwise")
                 }
                 .buttonStyle(.borderedProminent)
-                Button(loc.t("common.back")) { onDone() }
+                Button(loc.t("common.back")) { onDone(0) }
                     .buttonStyle(.bordered)
             }
         }

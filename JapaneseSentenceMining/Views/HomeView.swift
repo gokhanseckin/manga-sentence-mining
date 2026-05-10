@@ -15,6 +15,8 @@ struct HomeView: View {
     @State private var pickerItem: PhotosPickerItem?
     @State private var previewImage: PreviewImage?
     @State private var isPreparingGallery = false
+    @State private var savedToastCount: Int = 0
+    @State private var showSavedToast = false
 
     private struct PreviewImage: Identifiable {
         let id = UUID()
@@ -164,8 +166,33 @@ struct HomeView: View {
                 .ignoresSafeArea()
             }
             .navigationDestination(item: $capturedPage) { page in
-                ProcessingView(page: page) {
+                ProcessingView(page: page) { savedCount in
                     capturedPage = nil
+                    if savedCount > 0 {
+                        savedToastCount = savedCount
+                        showSavedToast = true
+                        Task {
+                            try? await Task.sleep(nanoseconds: 2_000_000_000)
+                            withAnimation { showSavedToast = false }
+                        }
+                    }
+                }
+            }
+            .overlay(alignment: .top) {
+                if showSavedToast {
+                    HStack(spacing: 10) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Text(loc.t("feedback.sentencesSaved", String(savedToastCount)))
+                            .font(.subheadline.weight(.medium))
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(.regularMaterial, in: Capsule())
+                    .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showSavedToast)
                 }
             }
             .onChange(of: pickerItem) { _, item in
