@@ -51,7 +51,7 @@ struct ZoomableImageView: UIViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator() }
 
     func makeUIView(context: Context) -> UIScrollView {
-        let scroll = UIScrollView()
+        let scroll = ZoomScrollView()
         scroll.backgroundColor = .black
         scroll.delegate = context.coordinator
         scroll.minimumZoomScale = minScale
@@ -60,6 +60,9 @@ struct ZoomableImageView: UIViewRepresentable {
         scroll.showsVerticalScrollIndicator = false
         scroll.showsHorizontalScrollIndicator = false
         scroll.contentInsetAdjustmentBehavior = .never
+        scroll.onLayout = { [weak coord = context.coordinator] in
+            coord?.fitIfNeeded()
+        }
 
         let imageView = UIImageView(image: image)
         imageView.contentMode = .scaleAspectFit
@@ -80,9 +83,18 @@ struct ZoomableImageView: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UIScrollView, context: Context) {
-        context.coordinator.imageView?.image = image
-        DispatchQueue.main.async {
-            context.coordinator.layoutForFit()
+        if context.coordinator.imageView?.image !== image {
+            context.coordinator.imageView?.image = image
+            context.coordinator.fittedImage = nil
+            uiView.setNeedsLayout()
+        }
+    }
+
+    final class ZoomScrollView: UIScrollView {
+        var onLayout: (() -> Void)?
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            onLayout?()
         }
     }
 
@@ -90,11 +102,23 @@ struct ZoomableImageView: UIViewRepresentable {
         weak var scrollView: UIScrollView?
         weak var imageView: UIImageView?
         var doubleTapScale: CGFloat = 2.5
+        weak var fittedImage: UIImage?
+        var fittedBounds: CGRect = .zero
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
 
         func scrollViewDidZoom(_ scrollView: UIScrollView) {
             centerContent()
+        }
+
+        func fitIfNeeded() {
+            guard let scrollView, let imageView, let image = imageView.image else { return }
+            let bounds = scrollView.bounds
+            guard bounds.width > 0, bounds.height > 0 else { return }
+            if fittedImage === image && fittedBounds == bounds { return }
+            fittedImage = image
+            fittedBounds = bounds
+            layoutForFit()
         }
 
         func layoutForFit() {
