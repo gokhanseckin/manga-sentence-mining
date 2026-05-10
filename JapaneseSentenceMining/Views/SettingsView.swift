@@ -21,6 +21,14 @@ struct SettingsView: View {
             }
 
             Section {
+                Toggle(loc.t("settings.iCloudSync"), isOn: $settings.iCloudSyncEnabled)
+            } header: {
+                Text(loc.t("settings.section.iCloudSync"))
+            } footer: {
+                Text(loc.t("settings.iCloudSync.description"))
+            }
+
+            Section {
                 Toggle(loc.t("settings.saveToCameraRoll"), isOn: $settings.saveToCameraRoll)
             } footer: {
                 Text(loc.t("settings.saveToCameraRoll.footer"))
