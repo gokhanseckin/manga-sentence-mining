@@ -200,9 +200,9 @@ private struct TokenChip: View {
 
     @ViewBuilder
     private var chipContent: some View {
-        if showFurigana, shouldAnnotate {
+        if showFurigana {
             VStack(spacing: 1) {
-                Text(katakanaToHiragana(token.reading))
+                Text(shouldAnnotate ? katakanaToHiragana(token.reading) : " ")
                     .font(.caption2)
                 Text(token.surface)
                     .font(.title3)
