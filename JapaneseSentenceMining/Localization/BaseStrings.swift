@@ -141,6 +141,14 @@ enum BaseStrings {
         Entry(key: "settings.apiKey.remove", value: "Remove saved key", comment: "Destructive button label to remove the saved API key from the keychain."),
         Entry(key: "settings.apiKey.footer", value: "Keys are stored in the iOS Keychain on this device only.", comment: "Footer note explaining where the API key is stored."),
 
+        // Settings (iCloud + language)
+        Entry(key: "settings.section.iCloudSync", value: "iCloud", comment: "Settings section header above the iCloud sync toggle."),
+        Entry(key: "settings.section.language", value: "Language", comment: "Settings section header above the interface-language picker."),
+        Entry(key: "settings.language.confirm.title", value: "Change language?", comment: "Alert title shown when the user picks a new interface language."),
+        Entry(key: "settings.language.confirm.message", value: "Are you sure? This will both change the interface language and new mined sentence translations will be in the selected language.", comment: "Alert body explaining that changing the language affects both the UI and future captured-sentence translations."),
+        Entry(key: "settings.language.confirm.yes", value: "Yes, Change", comment: "Confirm button on the language-change alert. Commits the change."),
+        Entry(key: "settings.language.confirm.no", value: "No, Keep", comment: "Cancel button on the language-change alert. Reverts the picker to the current language."),
+
         // Candidate picker (after OCR)
         Entry(key: "candidatePicker.title", value: "Pick sentences", comment: "Navigation title for the screen where the user picks which OCR'd sentences to keep."),
         Entry(key: "candidatePicker.footer", value: "Edit any line before saving. Unselected items are discarded.", comment: "Footer note explaining the candidate-picker screen."),
