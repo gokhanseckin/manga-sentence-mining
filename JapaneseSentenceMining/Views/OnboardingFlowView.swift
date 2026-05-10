@@ -138,18 +138,18 @@ private struct LanguageStepView: View {
             List {
                 Section {
                     ForEach(SupportedLanguage.allCases, id: \.self) { language in
-                        Button {
-                            selection = language.rawValue
-                        } label: {
-                            HStack {
-                                Text(language.endonym)
-                                Spacer()
-                                if selection == language.rawValue {
-                                    Image(systemName: "checkmark")
-                                }
+                        HStack {
+                            Text(language.endonym)
+                            Spacer()
+                            if selection == language.rawValue {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selection = language.rawValue
+                        }
                     }
                 }
             }
