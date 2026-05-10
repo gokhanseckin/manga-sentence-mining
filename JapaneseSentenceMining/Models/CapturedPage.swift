@@ -16,6 +16,9 @@ final class CapturedPage {
         set { documentTypeRaw = newValue.rawValue }
     }
 
+    @Relationship(deleteRule: .cascade, inverse: \Sentence.capturedPage)
+    var sentences: [Sentence]? = []
+
     init(
         id: UUID = UUID(),
         capturedAt: Date = .now,

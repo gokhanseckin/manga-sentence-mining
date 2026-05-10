@@ -18,6 +18,9 @@ final class Cloze {
     var correctCount: Int = 0
     var incorrectCount: Int = 0
 
+    @Relationship(deleteRule: .cascade, inverse: \ReviewEvent.cloze)
+    var reviewEvents: [ReviewEvent]? = []
+
     init(
         id: UUID = UUID(),
         sentence: Sentence? = nil,

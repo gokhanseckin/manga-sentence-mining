@@ -6,6 +6,7 @@ struct ClozePickerView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SettingsStore.self) private var settings
+    @Environment(LocalizationStore.self) private var loc
 
     @State private var tokens: [JapaneseToken] = []
     @State private var selectedTokenIDs: Set<Int> = []
@@ -16,11 +17,11 @@ struct ClozePickerView: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView("Tokenizing…")
+                    ProgressView(loc.t("clozePicker.tokenizing"))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if let loadError {
                     ContentUnavailableView(
-                        "Couldn't tokenize",
+                        loc.t("clozePicker.error.title"),
                         systemImage: "exclamationmark.triangle",
                         description: Text(loadError)
                     )
@@ -28,11 +29,11 @@ struct ClozePickerView: View {
                     content
                 }
             }
-            .navigationTitle("Pick clozes")
+            .navigationTitle(loc.t("clozePicker.title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") { dismiss() }
+                    Button(loc.t("common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(confirmLabel) {
@@ -46,13 +47,13 @@ struct ClozePickerView: View {
     }
 
     private var confirmLabel: String {
-        selectedTokenIDs.isEmpty ? "Save" : "Save (\(selectedTokenIDs.count))"
+        selectedTokenIDs.isEmpty ? loc.t("common.save") : loc.t("clozePicker.saveWithCount", String(selectedTokenIDs.count))
     }
 
     private var content: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Tap each word you want to quiz. Already-clozed words are dimmed.")
+                Text(loc.t("clozePicker.instructions"))
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 

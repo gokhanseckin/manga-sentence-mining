@@ -40,10 +40,11 @@ targets:
         CFBundleDisplayName: Japanese Sentence Mining
         CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: "1"
-        UILaunchScreen:
-          UIColorName: ""
+        UILaunchStoryboardName: LaunchScreen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - remote-notification
         NSCameraUsageDescription: Japanese Sentence Mining needs camera access to capture printed Japanese pages and OCR the text.
         NSPhotoLibraryAddUsageDescription: Japanese Sentence Mining can save captured pages to your Photos library when the camera-roll setting is on.
         NSPhotoLibraryUsageDescription: Japanese Sentence Mining lets you pick existing photos from your Photos library to OCR.

@@ -3,14 +3,15 @@ import SwiftUI
 
 struct SavedSentencesView: View {
     @Query(sort: \Sentence.createdAt, order: .reverse) private var sentences: [Sentence]
+    @Environment(LocalizationStore.self) private var loc
 
     var body: some View {
         Group {
             if sentences.isEmpty {
                 ContentUnavailableView(
-                    "No sentences yet",
+                    loc.t("savedSentences.empty.title"),
                     systemImage: "text.book.closed",
-                    description: Text("Capture a manga page from the home screen.")
+                    description: Text(loc.t("savedSentences.empty.body"))
                 )
             } else {
                 List {
@@ -38,7 +39,7 @@ struct SavedSentencesView: View {
                 }
             }
         }
-        .navigationTitle("Saved sentences")
+        .navigationTitle(loc.t("savedSentences.title"))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

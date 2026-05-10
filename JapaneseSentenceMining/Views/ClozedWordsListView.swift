@@ -11,6 +11,7 @@ struct ClozedWordsListView: View {
     @Query(sort: \WordCard.firstClozedAt, order: .reverse) private var cardsByAdded: [WordCard]
     @Query(sort: \WordCard.nextReviewAt, order: .forward) private var cardsByDue: [WordCard]
     @State private var sort: SortMode = .firstClozed
+    @Environment(LocalizationStore.self) private var loc
 
     private var cards: [WordCard] {
         switch sort {
@@ -29,13 +30,13 @@ struct ClozedWordsListView: View {
                 }
             }
         }
-        .navigationTitle("Clozed words (\(cards.count))")
+        .navigationTitle(loc.t("clozedWords.title", String(cards.count)))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Picker("Sort", selection: $sort) {
+                Picker(loc.t("clozedWords.sort"), selection: $sort) {
                     ForEach(SortMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(label(for: mode)).tag(mode)
                     }
                 }
                 .pickerStyle(.menu)
@@ -44,11 +45,18 @@ struct ClozedWordsListView: View {
         .overlay {
             if cards.isEmpty {
                 ContentUnavailableView(
-                    "No clozed words yet",
+                    loc.t("clozedWords.empty.title"),
                     systemImage: "rectangle.stack",
-                    description: Text("Pick clozes from a sentence to start tracking words.")
+                    description: Text(loc.t("clozedWords.empty.body"))
                 )
             }
+        }
+    }
+
+    private func label(for mode: SortMode) -> String {
+        switch mode {
+        case .firstClozed: return loc.t("clozedWords.sort.recentlyAdded")
+        case .dueSoonest: return loc.t("clozedWords.sort.dueSoonest")
         }
     }
 
@@ -69,15 +77,17 @@ struct ClozedWordsListView: View {
                 }
                 Spacer()
                 if card.isKnown {
-                    Text("Known")
+                    Text(loc.t("clozedWords.known"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
-            Text("Will be due in \(DueDescription.string(from: card.nextReviewAt))")
+            Text(loc.t("clozedWords.dueIn", DueDescription.string(from: card.nextReviewAt)))
                 .font(.footnote)
                 .foregroundStyle(card.nextReviewAt <= .now ? .orange : .secondary)
-            Text("\(total.correct)/\(total.total) correct · \(card.clozes.count) sentence\(card.clozes.count == 1 ? "" : "s")")
+            Text(card.clozes.count == 1
+                 ? loc.t("clozedWords.stats.singular", String(total.correct), String(total.total), String(card.clozes.count))
+                 : loc.t("clozedWords.stats.plural", String(total.correct), String(total.total), String(card.clozes.count)))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

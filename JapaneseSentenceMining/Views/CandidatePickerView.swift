@@ -4,6 +4,7 @@ struct CandidatePickerView: View {
     let candidates: [SentenceCandidate]
     var onSave: ([SentenceCandidate]) -> Void
     var onCancel: () -> Void
+    @Environment(LocalizationStore.self) private var loc
 
     @State private var editable: [EditableCandidate]
     @State private var selected: Set<UUID>
@@ -76,14 +77,14 @@ struct CandidatePickerView: View {
                         ))
                         .labelsHidden()
                         VStack(alignment: .leading, spacing: 6) {
-                            TextField("Original (日本語)", text: $row.text, axis: .vertical)
+                            TextField(loc.t("candidatePicker.field.original.placeholder"), text: $row.text, axis: .vertical)
                                 .font(.body)
                                 .textFieldStyle(.plain)
-                            TextField("Reading (ひらがな)", text: $row.reading, axis: .vertical)
+                            TextField(loc.t("candidatePicker.field.reading.placeholder"), text: $row.reading, axis: .vertical)
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                                 .textFieldStyle(.plain)
-                            TextField("Translation (Türkçe)", text: $row.translation, axis: .vertical)
+                            TextField(loc.t("candidatePicker.field.translation.placeholder"), text: $row.translation, axis: .vertical)
                                 .font(.callout)
                                 .textFieldStyle(.plain)
                         }
@@ -91,21 +92,21 @@ struct CandidatePickerView: View {
                     .padding(.vertical, 4)
                 }
             } footer: {
-                Text("Edit any line before saving. Unselected items are discarded.")
+                Text(loc.t("candidatePicker.footer"))
             }
         }
-        .navigationTitle("Pick sentences")
+        .navigationTitle(loc.t("candidatePicker.title"))
         .navigationBarTitleDisplayMode(.inline)
         .disabled(isSaving)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
-                Button("Cancel", role: .cancel) { onCancel() }
+                Button(loc.t("common.cancel"), role: .cancel) { onCancel() }
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button {
                     Task { await commit() }
                 } label: {
-                    if isSaving { ProgressView() } else { Text("Save") }
+                    if isSaving { ProgressView() } else { Text(loc.t("common.save")) }
                 }
                 .disabled(selected.isEmpty || isSaving)
             }

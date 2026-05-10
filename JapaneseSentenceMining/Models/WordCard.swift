@@ -30,10 +30,20 @@ final class WordCard {
     @Attribute(.externalStorage) var sourceSnapshotsBlob: Data = Data()
 
     @Relationship(deleteRule: .nullify, inverse: \Cloze.wordCard)
-    var clozes: [Cloze] = []
+    var clozesOptional: [Cloze]? = []
+
+    var clozes: [Cloze] {
+        get { clozesOptional ?? [] }
+        set { clozesOptional = newValue }
+    }
 
     @Relationship(deleteRule: .cascade, inverse: \ReviewEvent.wordCard)
-    var reviewEvents: [ReviewEvent] = []
+    var reviewEventsOptional: [ReviewEvent]? = []
+
+    var reviewEvents: [ReviewEvent] {
+        get { reviewEventsOptional ?? [] }
+        set { reviewEventsOptional = newValue }
+    }
 
     init(
         id: UUID = UUID(),

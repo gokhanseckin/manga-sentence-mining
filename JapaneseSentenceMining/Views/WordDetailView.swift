@@ -6,6 +6,7 @@ struct WordDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Environment(SettingsStore.self) private var settings
+    @Environment(LocalizationStore.self) private var loc
     @State private var showDrillReview = false
     @State private var showDeleteConfirm = false
     @State private var showFurigana = false
@@ -21,27 +22,27 @@ struct WordDetailView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                LabeledContent("Part of speech", value: card.representativePOS)
-                LabeledContent("Due", value: DueDescription.string(from: card.nextReviewAt))
-                LabeledContent("Sentences", value: "\(activeClozes.count) active · \(excludedClozes.count) excluded")
-                LabeledContent("Aggregate", value: "\(aggregate.correct)/\(aggregate.total) correct")
-                LabeledContent("First clozed", value: card.firstClozedAt.formatted(date: .abbreviated, time: .omitted))
+                LabeledContent(loc.t("wordDetail.partOfSpeech"), value: card.representativePOS)
+                LabeledContent(loc.t("wordDetail.due"), value: DueDescription.string(from: card.nextReviewAt))
+                LabeledContent(loc.t("wordDetail.sentencesCount"), value: loc.t("wordDetail.sentencesValue", String(activeClozes.count), String(excludedClozes.count)))
+                LabeledContent(loc.t("wordDetail.aggregate"), value: loc.t("wordDetail.aggregateValue", String(aggregate.correct), String(aggregate.total)))
+                LabeledContent(loc.t("wordDetail.firstClozed"), value: card.firstClozedAt.formatted(date: .abbreviated, time: .omitted))
             }
 
             Section {
-                Toggle("Mark as known", isOn: $card.isKnown)
+                Toggle(loc.t("wordDetail.markKnown"), isOn: $card.isKnown)
                     .onChange(of: card.isKnown) { _, _ in try? modelContext.save() }
                 Button {
                     showDrillReview = true
                 } label: {
-                    Label("Drill this word", systemImage: "play.circle.fill")
+                    Label(loc.t("wordDetail.drill"), systemImage: "play.circle.fill")
                 }
                 .disabled(activeClozes.isEmpty || card.isKnown)
             }
 
-            Section("Sentences") {
+            Section(loc.t("wordDetail.section.sentences")) {
                 if activeClozes.isEmpty && excludedClozes.isEmpty {
-                    Text("No sentences linked.")
+                    Text(loc.t("wordDetail.noSentences"))
                         .foregroundStyle(.secondary)
                 }
                 ForEach(activeClozes) { cloze in
@@ -58,22 +59,22 @@ struct WordDetailView: View {
                 Button(role: .destructive) {
                     showDeleteConfirm = true
                 } label: {
-                    Label("Delete cloze", systemImage: "trash")
+                    Label(loc.t("wordDetail.delete"), systemImage: "trash")
                         .frame(maxWidth: .infinity)
                 }
             }
         }
         .confirmationDialog(
-            "Delete this clozed word?",
+            loc.t("wordDetail.deleteConfirm.title"),
             isPresented: $showDeleteConfirm,
             titleVisibility: .visible
         ) {
-            Button("Delete", role: .destructive) {
+            Button(loc.t("common.delete"), role: .destructive) {
                 deleteCard()
             }
-            Button("Cancel", role: .cancel) {}
+            Button(loc.t("common.cancel"), role: .cancel) {}
         } message: {
-            Text("Removes \(card.lemma) from clozed words and clears its review history. The sentences themselves stay.")
+            Text(loc.t("wordDetail.deleteConfirm.message", card.lemma))
         }
         .navigationTitle(card.lemma)
         .navigationBarTitleDisplayMode(.inline)
@@ -132,11 +133,11 @@ struct WordDetailView: View {
                 sentenceRowText(cloze, excluded: excluded)
             }
             HStack {
-                Text("\(cloze.correctCount)/\(attempts) correct")
+                Text(loc.t("wordDetail.attempts", String(cloze.correctCount), String(attempts)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Toggle("Ask this sentence", isOn: Binding(
+                Toggle(loc.t("wordDetail.askThisSentence"), isOn: Binding(
                     get: { !cloze.excludedFromReview },
                     set: { newValue in
                         cloze.excludedFromReview = !newValue

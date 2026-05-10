@@ -27,7 +27,12 @@ final class Sentence {
     var capturedPage: CapturedPage?
 
     @Relationship(deleteRule: .cascade, inverse: \Cloze.sentence)
-    var clozes: [Cloze] = []
+    var clozesOptional: [Cloze]? = []
+
+    var clozes: [Cloze] {
+        get { clozesOptional ?? [] }
+        set { clozesOptional = newValue }
+    }
 
     var hasClozes: Bool { !clozes.isEmpty }
 

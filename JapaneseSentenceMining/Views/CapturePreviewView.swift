@@ -5,6 +5,7 @@ struct CapturePreviewView: View {
     let image: UIImage
     let onMine: () -> Void
     let onRetake: () -> Void
+    @Environment(LocalizationStore.self) private var loc
 
     var body: some View {
         ZStack {
@@ -15,7 +16,7 @@ struct CapturePreviewView: View {
 
                 VStack(spacing: 12) {
                     Button(action: onMine) {
-                        Label("Mine sentences", systemImage: "text.viewfinder")
+                        Label(loc.t("capturePreview.mine"), systemImage: "text.viewfinder")
                             .font(.headline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 14)
@@ -24,7 +25,7 @@ struct CapturePreviewView: View {
                     .controlSize(.large)
 
                     Button(action: onRetake) {
-                        Label("Retake", systemImage: "arrow.counterclockwise")
+                        Label(loc.t("capturePreview.retake"), systemImage: "arrow.counterclockwise")
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 12)
                     }

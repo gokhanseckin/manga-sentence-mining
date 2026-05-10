@@ -107,7 +107,12 @@ final class SettingsStore {
         if UserDefaults.standard.object(forKey: iCloudSyncKey) != nil {
             self.iCloudSyncEnabled = UserDefaults.standard.bool(forKey: iCloudSyncKey)
         } else {
-            self.iCloudSyncEnabled = FileManager.default.ubiquityIdentityToken != nil
+            let initial = FileManager.default.ubiquityIdentityToken != nil
+            self.iCloudSyncEnabled = initial
+            // Persist explicitly so AppModelContainer (which only checks
+            // whether the key is set) honors the user's iCloud state on the
+            // *next* launch. didSet does not fire from init().
+            UserDefaults.standard.set(initial, forKey: iCloudSyncKey)
         }
     }
 

@@ -61,6 +61,13 @@ enum AppModelContainer {
         if UserDefaults.standard.object(forKey: iCloudSyncEnabledKey) != nil {
             return UserDefaults.standard.bool(forKey: iCloudSyncEnabledKey)
         }
-        return FileManager.default.ubiquityIdentityToken != nil
+        // Pre-onboarding first launch: stay local-only. Enabling CloudKit
+        // before the user has opted in adds noticeable startup latency
+        // (CKContainer/schema setup + initial sync) and triggers
+        // `unsafeForcedSync` warnings as SwiftData drives CloudKit from
+        // synchronous container init. Once onboarding finishes, the user's
+        // explicit pref (defaulted to ubiquityIdentityToken-based ON in
+        // SettingsStore.init) takes over on subsequent launches.
+        return false
     }
 }

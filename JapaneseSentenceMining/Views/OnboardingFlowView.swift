@@ -4,15 +4,15 @@ struct OnboardingFlowView: View {
     @Environment(SettingsStore.self) private var settings
     @Environment(LocalizationStore.self) private var localization
 
-    @State private var step: Step = .language
+    @State private var step: Step = .welcome
     @State private var draftLanguage: String = ""
     @State private var draftApiKey: String = ""
     @State private var translationStatus: TranslationStatus = .idle
 
     enum Step: Hashable {
-        case language
         case welcome
         case apiKey
+        case language
     }
 
     enum TranslationStatus: Equatable {
@@ -25,13 +25,6 @@ struct OnboardingFlowView: View {
         ZStack {
             NavigationStack {
                 switch step {
-                case .language:
-                    LanguageStepView(
-                        selection: $draftLanguage,
-                        translationStatus: translationStatus,
-                        onContinue: handleLanguageContinue
-                    )
-                    .environment(localization)
                 case .welcome:
                     WelcomeStepView(onContinue: { step = .apiKey })
                         .environment(localization)
@@ -39,6 +32,13 @@ struct OnboardingFlowView: View {
                     APIKeyStepView(
                         apiKey: $draftApiKey,
                         onContinue: handleApiKeyContinue
+                    )
+                    .environment(localization)
+                case .language:
+                    LanguageStepView(
+                        selection: $draftLanguage,
+                        translationStatus: translationStatus,
+                        onContinue: handleLanguageContinue
                     )
                     .environment(localization)
                 }
@@ -57,39 +57,33 @@ struct OnboardingFlowView: View {
         }
     }
 
-    private func handleLanguageContinue() {
-        guard !draftLanguage.isEmpty else { return }
-        // Always store the user's pick. UI will display in English until the
-        // translation cache is populated (after API key step) — this is the
-        // honest behavior; pre-translated bundled files don't ship in v0.3.0.
-        settings.interfaceLanguage = draftLanguage
-        if draftLanguage == "en" {
-            localization.setLanguage(draftLanguage)
-        }
-        step = .welcome
-    }
-
     private func handleApiKeyContinue() {
         let trimmed = draftApiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         settings.setApiKey(trimmed, for: .geminiFlash)
+        step = .language
+    }
 
-        let chosen = settings.interfaceLanguage
+    private func handleLanguageContinue() {
+        guard !draftLanguage.isEmpty else { return }
+        settings.interfaceLanguage = draftLanguage
 
-        if chosen == "en" {
-            localization.setLanguage(chosen)
+        if draftLanguage == "en" {
+            localization.setLanguage(draftLanguage)
             settings.hasCompletedOnboarding = true
             return
         }
 
-        if localization.hasCache(for: chosen) {
-            localization.setLanguage(chosen)
+        if localization.hasCache(for: draftLanguage) {
+            localization.setLanguage(draftLanguage)
             settings.hasCompletedOnboarding = true
             return
         }
 
-        translationStatus = .translating(language: chosen)
-        Task { await translateAndFinish(language: chosen, apiKey: trimmed) }
+        let key = settings.apiKey(for: .geminiFlash)
+        guard !key.isEmpty else { return }
+        translationStatus = .translating(language: draftLanguage)
+        Task { await translateAndFinish(language: draftLanguage, apiKey: key) }
     }
 
     private func translateAndFinish(language: String, apiKey: String) async {
@@ -138,18 +132,18 @@ private struct LanguageStepView: View {
             List {
                 Section {
                     ForEach(SupportedLanguage.allCases, id: \.self) { language in
-                        Button {
-                            selection = language.rawValue
-                        } label: {
-                            HStack {
-                                Text(language.endonym)
-                                Spacer()
-                                if selection == language.rawValue {
-                                    Image(systemName: "checkmark")
-                                }
+                        HStack {
+                            Text(language.endonym)
+                            Spacer()
+                            if selection == language.rawValue {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(.tint)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selection = language.rawValue
+                        }
                     }
                 }
             }
