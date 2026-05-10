@@ -72,7 +72,7 @@ final class CameraViewController: UIViewController, AVCapturePhotoCaptureDelegat
         session.commitConfiguration()
 
         let layer = AVCaptureVideoPreviewLayer(session: session)
-        layer.videoGravity = .resizeAspectFill
+        layer.videoGravity = .resizeAspect
         layer.frame = view.bounds
         view.layer.addSublayer(layer)
         previewLayer = layer
