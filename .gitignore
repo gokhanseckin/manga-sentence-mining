@@ -26,3 +26,7 @@ Pods/
 .vscode/
 .idea/
 *.swp
+
+# Sentry — local auth token override (never commit auth tokens)
+.sentryclirc.local
+.env.sentry-build-plugin

@@ -6,6 +6,10 @@ struct JapaneseSentenceMiningApp: App {
     @State private var settings = SettingsStore()
     @State private var localization = LocalizationStore()
 
+    init() {
+        SentryBootstrap.start()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

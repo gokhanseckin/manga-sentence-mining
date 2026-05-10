@@ -1,0 +1,8 @@
+[defaults]
+url = https://sentry.io/
+org = gokhan-seckin
+project = apple-ios
+
+[auth]
+# Auth token is read from ~/.sentryclirc (your existing org:ci token works)
+# or SENTRY_AUTH_TOKEN env var. Do NOT commit a token here.
