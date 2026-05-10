@@ -6,9 +6,6 @@ enum SentryBootstrap {
         guard let dsn = Bundle.main.object(forInfoDictionaryKey: "SentryDSN") as? String,
               !dsn.isEmpty,
               !dsn.hasPrefix("$(") else {
-            #if DEBUG
-            print("Sentry: SentryDSN missing in Info.plist; skipping init.")
-            #endif
             return
         }
 
@@ -16,17 +13,21 @@ enum SentryBootstrap {
             options.dsn = dsn
             options.releaseName = Self.releaseName()
             options.environment = Self.environment()
-            options.tracesSampleRate = 0.2
-            options.profilesSampleRate = 0.2
-            options.attachScreenshot = false
-            options.attachViewHierarchy = false
+
+            // Disabled: heavy main-thread work at App.init() (was the 5-8s
+            // cold-launch black screen).
+            options.tracesSampleRate = 0
+            options.enableAutoPerformanceTracing = false
+            options.swiftAsyncStacktraces = false
+            options.debug = false
+
+            // Enabled: event-time-only cost (screenshot/view hierarchy on
+            // crash) or near-zero runtime cost (hang watcher, MetricKit hook).
             options.enableAppHangTracking = true
-            options.enableAutoPerformanceTracing = true
-            options.swiftAsyncStacktraces = true
-            #if DEBUG
-            options.debug = true
-            options.environment = "debug"
-            #endif
+            options.enableMetricKit = true
+            options.attachScreenshot = true
+            options.attachViewHierarchy = true
+            options.sendDefaultPii = false
         }
     }
 

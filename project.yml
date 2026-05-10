@@ -18,7 +18,7 @@ packages:
     revision: 1f096492e37fc05fc2e7304091f54889974c5368
   Sentry:
     url: https://github.com/getsentry/sentry-cocoa
-    from: "8.36.0"
+    from: "9.12.1"
 targets:
   JapaneseSentenceMining:
     type: application
