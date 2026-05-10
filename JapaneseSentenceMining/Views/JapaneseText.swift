@@ -47,14 +47,10 @@ private struct FuriganaFlow: View {
     var body: some View {
         FlowLayout(spacing: 2) {
             ForEach(Array(tokens.enumerated()), id: \.offset) { _, token in
-                if shouldAnnotate(token) {
-                    VStack(spacing: 0) {
-                        Text(katakanaToHiragana(token.reading))
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Text(token.surface).font(font)
-                    }
-                } else {
+                VStack(spacing: 0) {
+                    Text(shouldAnnotate(token) ? katakanaToHiragana(token.reading) : " ")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     Text(token.surface).font(font)
                 }
             }
@@ -97,7 +93,10 @@ struct FuriganaToggleButton: View {
         Button {
             showFurigana.toggle()
         } label: {
-            Image(systemName: showFurigana ? "textformat.alt" : "textformat")
+            Text("ルビ")
+                .font(.subheadline)
+                .fontWeight(showFurigana ? .bold : .regular)
+                .foregroundStyle(showFurigana ? Color.accentColor : Color.secondary)
                 .accessibilityLabel(showFurigana ? loc.t("furigana.hide") : loc.t("furigana.show"))
         }
     }

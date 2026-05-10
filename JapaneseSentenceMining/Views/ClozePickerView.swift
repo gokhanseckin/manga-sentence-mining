@@ -12,6 +12,7 @@ struct ClozePickerView: View {
     @State private var selectedTokenIDs: Set<Int> = []
     @State private var isLoading = true
     @State private var loadError: String?
+    @State private var showFurigana = false
 
     var body: some View {
         NavigationStack {
@@ -34,6 +35,10 @@ struct ClozePickerView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(loc.t("common.cancel")) { dismiss() }
+                }
+                ToolbarSpacer(.fixed, placement: .topBarLeading)
+                ToolbarItem(placement: .topBarLeading) {
+                    FuriganaToggleButton(showFurigana: $showFurigana)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(confirmLabel) {
@@ -61,7 +66,8 @@ struct ClozePickerView: View {
                     ForEach(Array(tokens.enumerated()), id: \.offset) { idx, token in
                         TokenChip(
                             token: token,
-                            state: chipState(for: idx, token: token)
+                            state: chipState(for: idx, token: token),
+                            showFurigana: showFurigana
                         ) {
                             toggleSelection(idx, token: token)
                         }
@@ -177,12 +183,12 @@ struct ClozePickerView: View {
 private struct TokenChip: View {
     let token: JapaneseToken
     let state: ClozePickerView.ChipState
+    let showFurigana: Bool
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(token.surface)
-                .font(.title3)
+            chipContent
                 .padding(.vertical, 6)
                 .padding(.horizontal, 10)
                 .background(background)
@@ -191,6 +197,39 @@ private struct TokenChip: View {
         }
         .buttonStyle(.plain)
         .disabled(state == .alreadyClozed)
+    }
+
+    @ViewBuilder
+    private var chipContent: some View {
+        if showFurigana {
+            VStack(spacing: 1) {
+                Text(shouldAnnotate ? katakanaToHiragana(token.reading) : " ")
+                    .font(.caption2)
+                Text(token.surface)
+                    .font(.title3)
+            }
+        } else {
+            Text(token.surface).font(.title3)
+        }
+    }
+
+    private var shouldAnnotate: Bool {
+        let reading = token.reading
+        guard !reading.isEmpty, reading != "*" else { return false }
+        return token.surface != reading
+            && token.surface.unicodeScalars.contains { scalar in
+                (0x4E00...0x9FFF).contains(scalar.value) || (0x3400...0x4DBF).contains(scalar.value)
+            }
+    }
+
+    private func katakanaToHiragana(_ s: String) -> String {
+        String(s.unicodeScalars.map { scalar -> Character in
+            if (0x30A1...0x30F6).contains(scalar.value),
+               let converted = Unicode.Scalar(scalar.value - 0x60) {
+                return Character(converted)
+            }
+            return Character(scalar)
+        })
     }
 
     private var background: some ShapeStyle {

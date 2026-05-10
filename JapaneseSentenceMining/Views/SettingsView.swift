@@ -7,6 +7,8 @@ struct SettingsView: View {
 
     @State private var apiKeyDraft: String = ""
     @State private var savedFlash = false
+    @State private var pendingLanguage: SupportedLanguage?
+    @State private var showLanguageConfirm = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -18,6 +20,34 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
+            }
+
+            Section {
+                Toggle(loc.t("settings.iCloudSync"), isOn: $settings.iCloudSyncEnabled)
+            } header: {
+                Text(loc.t("settings.section.iCloudSync"))
+            } footer: {
+                Text(loc.t("settings.iCloudSync.description"))
+            }
+
+            Section {
+                let currentLanguage = SupportedLanguage(rawValue: settings.interfaceLanguage) ?? .english
+                let languageBinding = Binding(
+                    get: { currentLanguage },
+                    set: { newValue in
+                        guard newValue.rawValue != settings.interfaceLanguage else { return }
+                        pendingLanguage = newValue
+                        showLanguageConfirm = true
+                    }
+                )
+                Picker(loc.t("settings.language"), selection: languageBinding) {
+                    ForEach(SupportedLanguage.allCases, id: \.self) { lang in
+                        Text(lang.endonym).tag(lang)
+                    }
+                }
+                .pickerStyle(.menu)
+            } header: {
+                Text(loc.t("settings.section.language"))
             }
 
             Section {
@@ -88,6 +118,21 @@ struct SettingsView: View {
         }
         .onChange(of: settings.providerKind) { _, newKind in
             apiKeyDraft = settings.apiKey(for: newKind)
+        }
+        .alert(
+            loc.t("settings.language.confirm.title"),
+            isPresented: $showLanguageConfirm,
+            presenting: pendingLanguage
+        ) { lang in
+            Button(loc.t("settings.language.confirm.yes"), role: .destructive) {
+                settings.interfaceLanguage = lang.rawValue
+                pendingLanguage = nil
+            }
+            Button(loc.t("settings.language.confirm.no"), role: .cancel) {
+                pendingLanguage = nil
+            }
+        } message: { _ in
+            Text(loc.t("settings.language.confirm.message"))
         }
     }
 }

@@ -131,7 +131,9 @@ struct SentenceDetailView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
-                FuriganaToggleButton(showFurigana: $showFurigana)
+                if !isEditing {
+                    FuriganaToggleButton(showFurigana: $showFurigana)
+                }
             }
             ToolbarItem(placement: .topBarTrailing) {
                 if isEditing {

@@ -4,6 +4,7 @@ import SwiftUI
 struct SavedSentencesView: View {
     @Query(sort: \Sentence.createdAt, order: .reverse) private var sentences: [Sentence]
     @Environment(LocalizationStore.self) private var loc
+    @State private var showFurigana = false
 
     var body: some View {
         Group {
@@ -20,8 +21,7 @@ struct SavedSentencesView: View {
                             SentenceDetailView(sentence: sentence)
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(sentence.text)
-                                    .font(.body)
+                                JapaneseText(text: sentence.text, showFurigana: $showFurigana, font: .body)
                                     .lineLimit(2)
                                 if let tr = sentence.translation, !tr.isEmpty {
                                     Text(tr)
@@ -41,5 +41,12 @@ struct SavedSentencesView: View {
         }
         .navigationTitle(loc.t("savedSentences.title"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            if !sentences.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    FuriganaToggleButton(showFurigana: $showFurigana)
+                }
+            }
+        }
     }
 }
