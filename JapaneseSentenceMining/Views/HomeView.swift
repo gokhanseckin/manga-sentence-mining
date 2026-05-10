@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var capturedPage: CapturedPage?
     @State private var pickerItem: PhotosPickerItem?
     @State private var previewImage: PreviewImage?
+    @State private var isPreparingGallery = false
 
     private struct PreviewImage: Identifiable {
         let id = UUID()
@@ -169,7 +170,19 @@ struct HomeView: View {
             }
             .onChange(of: pickerItem) { _, item in
                 guard let item else { return }
+                isPreparingGallery = true
                 Task { await handleGalleryPick(item) }
+            }
+            .fullScreenCover(isPresented: $isPreparingGallery) {
+                ZStack {
+                    Color(.systemBackground).ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView().scaleEffect(1.5)
+                        Text(loc.t("processing.readingPage"))
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
         }
     }
@@ -180,7 +193,10 @@ struct HomeView: View {
     }
 
     private func handleGalleryPick(_ item: PhotosPickerItem) async {
-        defer { pickerItem = nil }
+        defer {
+            pickerItem = nil
+            isPreparingGallery = false
+        }
         guard let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else {
             print("PhotosPicker: couldn't load selected image")
