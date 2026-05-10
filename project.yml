@@ -40,8 +40,7 @@ targets:
         CFBundleDisplayName: Japanese Sentence Mining
         CFBundleShortVersionString: "0.3.0"
         CFBundleVersion: "1"
-        UILaunchScreen:
-          UIColorName: ""
+        UILaunchStoryboardName: LaunchScreen
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIBackgroundModes:
