@@ -93,7 +93,10 @@ struct FuriganaToggleButton: View {
         Button {
             showFurigana.toggle()
         } label: {
-            Image(systemName: showFurigana ? "textformat.alt" : "textformat")
+            Text("ルビ")
+                .font(.subheadline)
+                .fontWeight(showFurigana ? .bold : .regular)
+                .foregroundStyle(showFurigana ? Color.accentColor : Color.secondary)
                 .accessibilityLabel(showFurigana ? loc.t("furigana.hide") : loc.t("furigana.show"))
         }
     }

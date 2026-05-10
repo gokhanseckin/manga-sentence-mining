@@ -36,7 +36,7 @@ struct ClozePickerView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(loc.t("common.cancel")) { dismiss() }
                 }
-                ToolbarItem(placement: .principal) {
+                ToolbarItem(placement: .topBarLeading) {
                     FuriganaToggleButton(showFurigana: $showFurigana)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
